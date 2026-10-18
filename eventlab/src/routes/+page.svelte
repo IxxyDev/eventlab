@@ -1,14 +1,23 @@
 <script lang="ts">
     import { onMount } from "svelte";
 
+    const registrationStorageKey =
+        "eventlab:registration-access:sound-workshop";
+
     let name = $state("");
     let email = $state("");
+
     let registration = $state<Registration | null>(null);
     let submitting = $state(false);
     let registrationError = $state("");
+
     let event = $state<EventDetails | null>(null);
     let eventLoading = $state(true);
     let eventError = $state("");
+
+    let restoringRegistration = $state(true);
+    let restoreError = $state("");
+    let storageWarning = $state("");
 
     async function loadEvent() {
         eventLoading = true;
@@ -32,6 +41,10 @@
 
     onMount(() => {
         void loadEvent();
+    });
+
+    onMount(() => {
+        void restoreRegistration();
     });
 
     async function register(e: SubmitEvent) {
@@ -83,7 +96,26 @@
                 throw new Error(`HTTP ${response.status}`);
             }
 
-            registration = await response.json();
+            const result: RegistrationCreatedResponse = await response.json();
+
+            registration = result.registration;
+            storageWarning = "";
+
+            const access: RegistrationAccess = {
+                id: result.registration.id,
+                accessToken: result.accessToken,
+            };
+
+            try {
+                localStorage.setItem(
+                    registrationStorageKey,
+                    JSON.stringify(access),
+                );
+            } catch {
+                storageWarning =
+                    "Регистрация создана, но браузер не сохранил ключ доступа. " +
+                    "После обновления страницы автоматическое восстановление не сработает.";
+            }
             await loadEvent();
         } catch (error) {
             console.error("Ошибка регистрации:", error);
@@ -94,10 +126,76 @@
         }
     }
 
+    async function restoreRegistration() {
+        restoringRegistration = true;
+        restoreError = "";
+
+        try {
+            const saved = localStorage.getItem(registrationStorageKey);
+
+            if (saved === null) {
+                return;
+            }
+
+            const access: unknown = JSON.parse(saved);
+
+            if (
+                typeof access !== "object" ||
+                access === null ||
+                !("id" in access) ||
+                !("accessToken" in access) ||
+                typeof access.id !== "string" ||
+                typeof access.accessToken !== "string" ||
+                !access.id ||
+                !access.accessToken
+            ) {
+                throw new Error("Invalid saved registration access");
+            }
+
+            const response = await fetch(
+                `http://localhost:8080/api/registrations/${encodeURIComponent(access.id)}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${access.accessToken}`,
+                    },
+                },
+            );
+
+            if (response.status === 404) {
+                localStorage.removeItem(registrationStorageKey);
+                registration = null;
+                storageWarning =
+                    "Сохранённая заявка недоступна: она отсутствует или ключ больше не подходит.";
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(`HTTP: ${response.status}`);
+            }
+
+            registration = await response.json();
+        } catch {
+            restoreError =
+                "Не удалось восстановить регистрацию. Сохранённый ключ не удалён.";
+        } finally {
+            restoringRegistration = false;
+        }
+    }
+
     type Registration = {
         id: string;
         name: string;
         email: string;
+    };
+
+    type RegistrationCreatedResponse = {
+        registration: Registration;
+        accessToken: string;
+    };
+
+    type RegistrationAccess = {
+        id: string;
+        accessToken: string;
     };
 
     type EventDetails = {
@@ -138,13 +236,25 @@
             <h2>Условия участия</h2>
             <p>Всего мест: {event.capacity}.</p>
             <p aria-live="polite">
-              Свободных мест: {event.availableSeats}.
+                Свободных мест: {event.availableSeats}.
             </p>
         </section>
 
         <p>Демонстрация регистрации: сохраняется только в этом браузере.</p>
 
-        {#if registration}
+        {#if storageWarning}
+            <p role="status">{storageWarning}</p>
+        {/if}
+
+        {#if restoringRegistration}
+            <p role="status">Проверяем вашу регистрацию...</p>
+        {:else if restoreError}
+            <p role="alert">{restoreError}</p>
+
+            <button type="button" onclick={restoreRegistration}>
+                Повторить проверку регистрации
+            </button>
+        {:else if registration}
             <div role="status">
                 <p>
                     {registration.name}, сервер подтвердил вашу регистрацию.
