@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class EventlabApiApplication
 
 fun main(args: Array<String>) {
-	runApplication<EventlabApiApplication>(*args)
+  runApplication<EventlabApiApplication>(*args)
 }
