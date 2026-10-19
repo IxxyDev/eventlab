@@ -64,7 +64,7 @@ class EventService {
             email = email
         )
 
-        val accessToken = generateAcessToken()
+        val accessToken = generateAccessToken()
 
         registrations.add(
             StoredRegistration(
@@ -132,7 +132,7 @@ class EventService {
         }
     }
 
-    private fun generateAcessToken(): String {
+    private fun generateAccessToken(): String {
         val bytes = ByteArray(32)
         secureRandom.nextBytes(bytes)
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import {
+  cancelRegistration,
   createRegistration,
   getEvent,
   getRegistration,
@@ -15,6 +16,7 @@ import RegistrationConfirmation from "#lib/components/RegistrationConfirmation.s
 import RegistrationForm from "#lib/components/RegistrationForm.svelte";
 import {
   clearRegistrationAccess,
+  type RegistrationAccess,
   readRegistrationAccess,
   saveRegistrationAccess,
 } from "#lib/registration-access.ts";
@@ -25,8 +27,13 @@ type RestoreState =
   | { status: "error"; message: string };
 
 let registration = $state<Registration | null>(null);
+let registrationAccess = $state<RegistrationAccess | null>(null);
 let submitting = $state(false);
 let registrationError = $state("");
+
+let cancelling = $state(false);
+let cancelError = $state("");
+let cancelNotice = $state("");
 
 let event = $state<EventDetails | null>(null);
 let eventLoading = $state(true);
@@ -81,21 +88,24 @@ async function register(request: RegistrationRequest) {
 
   submitting = true;
   registrationError = "";
+  cancelNotice = "";
 
   try {
     const result = await createRegistration({
       name: normalizedName,
       email: normalizedEmail,
     });
+    const access: RegistrationAccess = {
+      id: result.registration.id,
+      accessToken: result.accessToken,
+    };
 
     registration = result.registration;
+    registrationAccess = access;
     storageWarning = "";
 
     try {
-      saveRegistrationAccess({
-        id: result.registration.id,
-        accessToken: result.accessToken,
-      });
+      saveRegistrationAccess(access);
     } catch {
       storageWarning =
         "Регистрация создана, но браузер не сохранил ключ доступа. " +
@@ -154,6 +164,49 @@ async function register(request: RegistrationRequest) {
   }
 }
 
+async function cancel() {
+  if (!registrationAccess || cancelling) {
+    return;
+  }
+
+  const access = registrationAccess;
+  cancelling = true;
+  cancelError = "";
+  let notice = "Регистрация отменена.";
+
+  try {
+    await cancelRegistration(access.id, access.accessToken);
+  } catch (error) {
+    if (!(error instanceof HttpError && error.status === 404)) {
+      console.error("Ошибка отмены регистрации", error);
+      cancelError =
+        "Не удалось получить ответ сервера, поэтому неизвестно, отменена ли заявка. " +
+        "Нажмите «Отменить регистрацию» ещё раз.";
+      return;
+    }
+    notice =
+      "Заявка уже недоступна: возможно, ее отменили раньше. " +
+      "Сохраненный ключ удален.";
+  } finally {
+    cancelling = false;
+  }
+
+  registration = null;
+  registrationAccess = null;
+  storageWarning = "";
+  cancelNotice = notice;
+
+  try {
+    clearRegistrationAccess();
+  } catch {
+    storageWarning =
+      "Регистрация отменена, но браузер не удалил сохранённый ключ. " +
+      "Он больше не действует.";
+  }
+
+  await loadEvent();
+}
+
 async function restoreRegistration() {
   restoreState = { status: "loading" };
 
@@ -167,12 +220,15 @@ async function restoreRegistration() {
 
     try {
       registration = await getRegistration(access.id, access.accessToken);
+      registrationAccess = access;
     } catch (error) {
       if (error instanceof HttpError && error.status === 404) {
         clearRegistrationAccess();
         registration = null;
+        registrationAccess = null;
         storageWarning =
-          "Сохранённая заявка недоступна: она отсутствует или ключ больше не подходит.";
+          "Сохранённая заявка недоступна: " +
+          "она отсутствует или ключ больше не подходит.";
         restoreState = { status: "ready" };
         return;
       }
@@ -241,6 +297,10 @@ async function restoreRegistration() {
       Заявка хранится на сервере. Ключ доступа сохраняется в этом браузере.
     </p>
 
+    {#if cancelNotice}
+      <p class="notice" role="status">{cancelNotice}</p>
+    {/if}
+
     {#if storageWarning}
       <p class="notice notice--warning" role="status">{storageWarning}</p>
     {/if}
@@ -258,7 +318,12 @@ async function restoreRegistration() {
         Повторить проверку регистрации
       </button>
     {:else if registration}
-      <RegistrationConfirmation {registration} />
+      <RegistrationConfirmation
+        {registration}
+        {cancelling}
+        {cancelError}
+        onCancel={cancel}
+      />
     {:else if event.availableSeats === 0}
       <p class="notice" role="status">
         Свободные места закончились. Запись закрыта.

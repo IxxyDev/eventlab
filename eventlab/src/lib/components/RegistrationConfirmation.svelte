@@ -3,17 +3,33 @@ import type { Registration } from "#lib/api/types.ts";
 
 type Props = {
   registration: Registration;
+  cancelling: boolean;
+  cancelError: string;
+  onCancel: () => Promise<void>;
 };
 
-let { registration }: Props = $props();
+let { registration, cancelling, cancelError, onCancel }: Props = $props();
 </script>
 
-<div class="confirmation card" role="status">
+<div class="confirmation card" aria-busy={cancelling} role="status">
   <h2>Вы зарегистрированы</h2>
   <p>{registration.name}, сервер подтвердил вашу регистрацию.</p>
   <p>Email: {registration.email}</p>
   <p>Номер заявки: {registration.id}</p>
 </div>
+
+{#if cancelError}
+  <p class="notice notice--error" role="alert">{cancelError}</p>
+{/if}
+
+<button
+  class="button button--secondary"
+  type="button"
+  disabled={cancelling}
+  onclick={onCancel}
+>
+  {cancelling ? "Отменяем регистрацию..." : "Отменить регистрацию"}
+</button>
 
 <style>
 .confirmation {
@@ -31,5 +47,9 @@ h2 {
 
 p {
   margin-block: var(--space-2);
+}
+
+button {
+  margin-top: var(--space-4);
 }
 </style>

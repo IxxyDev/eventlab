@@ -100,7 +100,7 @@ class EventController(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
     }
 
-    @DeleteMapping("api/registrations/{id}")
+    @DeleteMapping("/api/registrations/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun cancelRegistration(
         @PathVariable("id") id: String,

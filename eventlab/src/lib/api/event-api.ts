@@ -60,6 +60,23 @@ export async function getRegistration(
   return response.json();
 }
 
+export async function cancelRegistration(
+  id: string,
+  accessToken: string,
+): Promise<void> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/registrations/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  await ensureSuccess(response);
+}
+
 async function ensureSuccess(response: Response): Promise<void> {
   if (response.ok) {
     return;
