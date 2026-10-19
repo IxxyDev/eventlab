@@ -42,6 +42,7 @@ async function handleSubmit(e: SubmitEvent) {
       pattern=".*\S.*"
       title="Введите имя, содержащее не только пробелы"
       disabled={submitting}
+      maxlength={100}
     >
   </label>
 
@@ -54,6 +55,7 @@ async function handleSubmit(e: SubmitEvent) {
       bind:value={email}
       required
       disabled={submitting}
+      maxlength={254}
     >
   </label>
 

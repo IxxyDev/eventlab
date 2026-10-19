@@ -105,14 +105,44 @@ async function register(request: RegistrationRequest) {
     await loadEvent();
   } catch (error) {
     if (error instanceof HttpError && error.status === 409) {
-      registrationError =
-        "Регистрация отклонена: мест нет или этот email уже зарегистрирован.";
+      switch (error.code) {
+        case "EMAIL_ALREADY_REGISTERED":
+          registrationError = "Этот email уже зарегистрирован на мероприятие.";
+          break;
+
+        case "EVENT_FULL":
+          event = { ...event, availableSeats: 0 };
+          registrationError = "Свободные места закончились.";
+          break;
+
+        default:
+          registrationError =
+            "Регистрация отклонена. Обновите данные и попробуйте снова.";
+      }
+
       await loadEvent();
       return;
     }
 
     if (error instanceof HttpError && error.status === 400) {
-      registrationError = "Проверьте имя и email";
+      switch (error.code) {
+        case "REQUIRED_FIELDS":
+          registrationError = "Укажите имя и email.";
+          break;
+
+        case "INPUT_TOO_LONG":
+          registrationError =
+            "Имя должно быть не длиннее 100 символов, email – 254";
+          break;
+
+        case "INVALID_EMAIL":
+          registrationError = "Укажите email в формате name@example.com.";
+          break;
+
+        default:
+          registrationError = "Проверьте имя и email.";
+      }
+
       return;
     }
 
@@ -229,6 +259,10 @@ async function restoreRegistration() {
       </button>
     {:else if registration}
       <RegistrationConfirmation {registration} />
+    {:else if event.availableSeats === 0}
+      <p class="notice" role="status">
+        Свободные места закончились. Запись закрыта.
+      </p>
     {:else}
       <RegistrationForm
         {submitting}

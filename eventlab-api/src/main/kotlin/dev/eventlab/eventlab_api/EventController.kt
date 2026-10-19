@@ -4,16 +4,14 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.server.ResponseStatusException
-import java.security.MessageDigest
-import java.security.SecureRandom
-import java.util.Base64
-import java.util.UUID
 
 data class EventResponse(
     val id: String,
@@ -48,8 +46,11 @@ data class StoredRegistration(
 )
 
 enum class RegistrationErrorCode {
+    REQUIRED_FIELDS,
+    INPUT_TOO_LONG,
+    INVALID_EMAIL,
     EMAIL_ALREADY_REGISTERED,
-    EVENT_FULL
+    EVENT_FULL,
 }
 
 data class RegistrationErrorResponse(
@@ -60,84 +61,29 @@ class RegistrationConflictException(
     val code: RegistrationErrorCode
 ) : RuntimeException(code.name)
 
+class RegistrationValidationException(
+    val code: RegistrationErrorCode
+) : RuntimeException(code.name)
+
 @RestController
 @CrossOrigin(origins = ["http://localhost:5173"])
-class EventController {
-    private val registrations = mutableListOf<StoredRegistration>()
-    private val capacity = 1
-    private val secureRandom = SecureRandom()
-
+class EventController(
+    private val eventService: EventService
+) {
     @PostMapping("/api/event/registrations")
     @ResponseStatus(HttpStatus.CREATED)
-    @Synchronized
     fun register(
         @RequestBody request: RegistrationRequest
     ): RegistrationCreatedResponse {
-        val name = request.name.trim()
-        val email = request.email.trim()
-
-        if (name.isEmpty() || email.isEmpty()) {
-            throw ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "Name and email required"
-            )
-        }
-
-        if (registrations.any { it.registration.email.equals(email, ignoreCase = true) }) {
-            throw RegistrationConflictException(
-                RegistrationErrorCode.EMAIL_ALREADY_REGISTERED
-            )
-        }
-
-        if (registrations.size >= capacity) {
-            throw RegistrationConflictException(
-                RegistrationErrorCode.EVENT_FULL
-            )
-        }
-
-        val registration = RegistrationResponse(
-            id = UUID.randomUUID().toString(),
-            name = name,
-            email = email
-        )
-
-        val accessToken = generateAcessToken()
-
-        registrations.add(StoredRegistration(
-            registration = registration,
-            accessToken = accessToken
-        ))
-
-        return RegistrationCreatedResponse(
-            registration = registration,
-            accessToken = accessToken
-        )
+        return eventService.register(request)
     }
 
-    fun handleRegistrationConflict(
-        exception: RegistrationConflictException
-    ): RegistrationErrorResponse {
-        return RegistrationErrorResponse(code = exception.code)
-    }
-    
     @GetMapping("/api/event")
-    @Synchronized
     fun getEvent(): EventResponse {
-        return EventResponse(
-            id = "sound-workshop",
-            title = "Как устроен звук на концерте",
-            description = "Разберём путь звука от микрофона до колонок " +
-                "и попробуем настроить небольшой концертный микс.",
-            dateLabel = "14 ноября 2026 года",
-            timeLabel = "18:00–20:00, по Москве",
-            venue = "Пространство «Сцена», зал № 2",
-            capacity = capacity,
-            availableSeats = capacity - registrations.size
-        )
+        return eventService.getEvent()
     }
 
     @GetMapping("/api/registrations/{id}")
-    @Synchronized
     fun getRegistration(
         @PathVariable("id") id: String,
         @RequestHeader(
@@ -145,37 +91,48 @@ class EventController {
             required = false
         ) authorization: String?
     ): RegistrationResponse {
-        val stored = registrations.find {
-            it.registration.id == id
-        }
-
         val token = authorization
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
             ?.substring(7)
             ?.trim()
 
-        if (stored == null || token.isNullOrEmpty()) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND)
-        }
-
-        val matches = MessageDigest.isEqual(
-            stored.accessToken.toByteArray(Charsets.UTF_8),
-            token.toByteArray(Charsets.UTF_8)
-        )
-
-        if (!matches) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND)
-        }
-
-        return stored.registration
+        return eventService.getRegistration(id, token)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
     }
 
-    private fun generateAcessToken(): String {
-        val bytes = ByteArray(32)
-        secureRandom.nextBytes(bytes)
+    @DeleteMapping("api/registrations/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun cancelRegistration(
+        @PathVariable("id") id: String,
+        @RequestHeader(
+            value = "Authorization",
+            required = false
+        ) authorization: String?
+    ) {
+        val token = authorization
+            ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.substring(7)
+            ?.trim()
+        val cancelled = eventService.cancelRegistration(id, token)
 
-        return Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString(bytes)
+        if (!cancelled) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        }
+    }
+
+    @ExceptionHandler(RegistrationConflictException::class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    fun handleRegistrationConflict(
+        exception: RegistrationConflictException
+    ): RegistrationErrorResponse {
+        return RegistrationErrorResponse(code = exception.code)
+    }
+
+    @ExceptionHandler(RegistrationValidationException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    fun handleRegistrationValidation(
+        exception: RegistrationValidationException
+    ): RegistrationErrorResponse {
+        return RegistrationErrorResponse(code = exception.code)
     }
 }
