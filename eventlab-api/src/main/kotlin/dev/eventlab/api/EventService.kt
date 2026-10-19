@@ -74,21 +74,25 @@ class EventService {
   }
 
   @Synchronized
-  fun getEvent(): EventResponse = EventResponse(
-    id = "sound-workshop",
-    title = "Как устроен звук на концерте",
-    description =
-    "Разберём путь звука от микрофона до колонок " +
-      "и попробуем настроить небольшой концертный микс.",
-    dateLabel = "14 ноября 2026 года",
-    timeLabel = "18:00–20:00, по Москве",
-    venue = "Пространство «Сцена», зал № 2",
-    capacity = capacity,
-    availableSeats = capacity - registrations.size,
-  )
+  fun getEvent(): EventResponse =
+    EventResponse(
+      id = "sound-workshop",
+      title = "Как устроен звук на концерте",
+      description =
+        "Разберём путь звука от микрофона до колонок " +
+          "и попробуем настроить небольшой концертный микс.",
+      dateLabel = "14 ноября 2026 года",
+      timeLabel = "18:00–20:00, по Москве",
+      venue = "Пространство «Сцена», зал № 2",
+      capacity = capacity,
+      availableSeats = capacity - registrations.size,
+    )
 
   @Synchronized
-  fun getRegistration(id: String, token: String?): RegistrationResponse? {
+  fun getRegistration(
+    id: String,
+    token: String?,
+  ): RegistrationResponse? {
     val stored =
       registrations.find {
         it.registration.id == id
@@ -112,7 +116,10 @@ class EventService {
   }
 
   @Synchronized
-  fun cancelRegistration(id: String, token: String?): Boolean {
+  fun cancelRegistration(
+    id: String,
+    token: String?,
+  ): Boolean {
     val registration =
       getRegistration(id, token)
         ?: return false

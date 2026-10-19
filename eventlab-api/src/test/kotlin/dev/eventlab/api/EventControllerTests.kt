@@ -18,22 +18,25 @@ class EventControllerTests {
   @BeforeEach
   fun setUp() {
     val eventService = EventService()
-    mvc = MockMvcBuilders
-      .standaloneSetup(EventController(eventService))
-      .build()
+    mvc =
+      MockMvcBuilders
+        .standaloneSetup(EventController(eventService))
+        .build()
   }
 
   @Test
   fun `should return 400 with invalid email without occupying a seat`() {
-    val requestBody = """
-        {
-            "name": "Anna",
-            "email": "not-an-email"
-        }
-    """.trimIndent()
-    val request = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(requestBody)
+    val requestBody =
+      """
+      {
+          "name": "Anna",
+          "email": "not-an-email"
+      }
+      """.trimIndent()
+    val request =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody)
 
     val registrationResult = mvc.perform(request)
     val eventResult = mvc.perform(get("/api/event"))
@@ -48,15 +51,17 @@ class EventControllerTests {
 
   @Test
   fun `should create registration and occupy a seat`() {
-    val requestBody = """
-        {
-            "name": "Anna",
-            "email": "anna@example.com"
-        }
-    """.trimIndent()
-    val request = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(requestBody)
+    val requestBody =
+      """
+      {
+          "name": "Anna",
+          "email": "anna@example.com"
+      }
+      """.trimIndent()
+    val request =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody)
 
     val registrationResult = mvc.perform(request)
     val eventResult = mvc.perform(get("/api/event"))
@@ -66,8 +71,7 @@ class EventControllerTests {
       .andExpect(jsonPath("$.registration.name").value("Anna"))
       .andExpect(
         jsonPath("$.registration.email").value("anna@example.com"),
-      )
-      .andExpect(jsonPath("$.registration.id").isNotEmpty())
+      ).andExpect(jsonPath("$.registration.id").isNotEmpty())
       .andExpect(jsonPath("$.accessToken").isNotEmpty())
     eventResult
       .andExpect(status().isOk())
@@ -76,28 +80,31 @@ class EventControllerTests {
 
   @Test
   fun `should reject duplicate email regardless of case`() {
-    val originalRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    mvc.perform(originalRequest)
+    val originalRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    mvc
+      .perform(originalRequest)
       .andExpect(status().isCreated())
-    val duplicateRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Another Anna",
-                    "email": "ANNA@example.com"
-                }
-        """.trimIndent(),
-      )
+    val duplicateRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Another Anna",
+              "email": "ANNA@example.com"
+          }
+          """.trimIndent(),
+        )
 
     val registrationResult = mvc.perform(duplicateRequest)
     val eventResult = mvc.perform(get("/api/event"))
@@ -112,28 +119,31 @@ class EventControllerTests {
 
   @Test
   fun `should reject another participant when event is full`() {
-    val originalRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    mvc.perform(originalRequest)
+    val originalRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    mvc
+      .perform(originalRequest)
       .andExpect(status().isCreated())
-    val anotherRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Boris",
-                    "email": "boris@example.com"
-                }
-        """.trimIndent(),
-      )
+    val anotherRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Boris",
+              "email": "boris@example.com"
+          }
+          """.trimIndent(),
+        )
 
     val registrationResult = mvc.perform(anotherRequest)
     val eventResult = mvc.perform(get("/api/event"))
@@ -148,25 +158,29 @@ class EventControllerTests {
 
   @Test
   fun `should return registration with valid access token`() {
-    val createRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    val responseBody = mvc.perform(createRequest)
-      .andExpect(status().isCreated())
-      .andReturn()
-      .response
-      .contentAsString
+    val createRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    val responseBody =
+      mvc
+        .perform(createRequest)
+        .andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
     val id = JsonPath.read<String>(responseBody, "$.registration.id")
     val accessToken = JsonPath.read<String>(responseBody, "$.accessToken")
-    val readRequest = get("/api/registrations/{id}", id)
-      .header("Authorization", "Bearer $accessToken")
+    val readRequest =
+      get("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $accessToken")
 
     val result = mvc.perform(readRequest)
 
@@ -180,24 +194,28 @@ class EventControllerTests {
 
   @Test
   fun `should return 404 for registration with invalid access token`() {
-    val createRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    val responseBody = mvc.perform(createRequest)
-      .andExpect(status().isCreated())
-      .andReturn()
-      .response
-      .contentAsString
+    val createRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    val responseBody =
+      mvc
+        .perform(createRequest)
+        .andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
     val id = JsonPath.read<String>(responseBody, "$.registration.id")
-    val readRequest = get("/api/registrations/{id}", id)
-      .header("Authorization", "Bearer invalid-token")
+    val readRequest =
+      get("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer invalid-token")
 
     val result = mvc.perform(readRequest)
 
@@ -207,21 +225,24 @@ class EventControllerTests {
 
   @Test
   fun `should return 404 for registration without access token`() {
-    val createRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    val responseBody = mvc.perform(createRequest)
-      .andExpect(status().isCreated())
-      .andReturn()
-      .response
-      .contentAsString
+    val createRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    val responseBody =
+      mvc
+        .perform(createRequest)
+        .andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
     val id = JsonPath.read<String>(responseBody, "$.registration.id")
     val readRequest = get("/api/registrations/{id}", id)
 
@@ -233,8 +254,9 @@ class EventControllerTests {
 
   @Test
   fun `should return 404 for nonexistent registration`() {
-    val readRequest = get("/api/registrations/{id}", "missing-registration")
-      .header("Authorization", "Bearer some-token")
+    val readRequest =
+      get("/api/registrations/{id}", "missing-registration")
+        .header("Authorization", "Bearer some-token")
 
     val result = mvc.perform(readRequest)
 
@@ -244,27 +266,32 @@ class EventControllerTests {
 
   @Test
   fun `should cancel registration and release a seat`() {
-    val createRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    val responseBody = mvc.perform(createRequest)
-      .andExpect(status().isCreated())
-      .andReturn()
-      .response
-      .contentAsString
+    val createRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    val responseBody =
+      mvc
+        .perform(createRequest)
+        .andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
     val id = JsonPath.read<String>(responseBody, "$.registration.id")
     val token = JsonPath.read<String>(responseBody, "$.accessToken")
-    val cancelRequest = delete("/api/registrations/{id}", id)
-      .header("Authorization", "Bearer $token")
-    val readRequest = get("/api/registrations/{id}", id)
-      .header("Authorization", "Bearer $token")
+    val cancelRequest =
+      delete("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $token")
+    val readRequest =
+      get("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $token")
 
     val cancellationResult = mvc.perform(cancelRequest)
     val registrationResult = mvc.perform(readRequest)
@@ -281,27 +308,32 @@ class EventControllerTests {
 
   @Test
   fun `should reject cancellation with invalid token and preserve registration`() {
-    val createRequest = post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(
-        """
-                {
-                    "name": "Anna",
-                    "email": "anna@example.com"
-                }
-        """.trimIndent(),
-      )
-    val responseBody = mvc.perform(createRequest)
-      .andExpect(status().isCreated())
-      .andReturn()
-      .response
-      .contentAsString
+    val createRequest =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+          """
+          {
+              "name": "Anna",
+              "email": "anna@example.com"
+          }
+          """.trimIndent(),
+        )
+    val responseBody =
+      mvc
+        .perform(createRequest)
+        .andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
     val id = JsonPath.read<String>(responseBody, "$.registration.id")
     val token = JsonPath.read<String>(responseBody, "$.accessToken")
-    val cancelRequest = delete("/api/registrations/{id}", id)
-      .header("Authorization", "Bearer invalid-token")
-    val readRequest = get("/api/registrations/{id}", id)
-      .header("Authorization", "Bearer $token")
+    val cancelRequest =
+      delete("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer invalid-token")
+    val readRequest =
+      get("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $token")
 
     val cancellationResult = mvc.perform(cancelRequest)
     val registrationResult = mvc.perform(readRequest)

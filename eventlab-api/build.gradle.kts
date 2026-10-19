@@ -47,9 +47,7 @@ tasks.withType<Test> {
 
 spotless {
   kotlin {
-    ktlint("1.8.0").editorConfigOverride(
-      mapOf("ktlint_ignore_back_ticked_identifier" to true),
-    )
+    ktlint("1.8.0")
   }
   kotlinGradle {
     ktlint("1.8.0")

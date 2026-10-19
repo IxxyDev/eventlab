@@ -24,7 +24,10 @@ data class EventResponse(
   val availableSeats: Int,
 )
 
-data class RegistrationRequest(val name: String, val email: String)
+data class RegistrationRequest(
+  val name: String,
+  val email: String,
+)
 
 data class RegistrationResponse(
   val id: String,
@@ -50,17 +53,23 @@ enum class RegistrationErrorCode {
   EVENT_FULL,
 }
 
-data class RegistrationErrorResponse(val code: RegistrationErrorCode)
+data class RegistrationErrorResponse(
+  val code: RegistrationErrorCode,
+)
 
-class RegistrationConflictException(val code: RegistrationErrorCode) :
-  RuntimeException(code.name)
+class RegistrationConflictException(
+  val code: RegistrationErrorCode,
+) : RuntimeException(code.name)
 
-class RegistrationValidationException(val code: RegistrationErrorCode) :
-  RuntimeException(code.name)
+class RegistrationValidationException(
+  val code: RegistrationErrorCode,
+) : RuntimeException(code.name)
 
 @RestController
 @CrossOrigin(origins = ["http://localhost:5173"])
-class EventController(private val eventService: EventService) {
+class EventController(
+  private val eventService: EventService,
+) {
   @PostMapping("/api/event/registrations")
   @ResponseStatus(HttpStatus.CREATED)
   fun register(
