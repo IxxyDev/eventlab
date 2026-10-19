@@ -1,394 +1,295 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+import { onMount } from "svelte";
+import {
+  createRegistration,
+  getEvent,
+  getRegistration,
+  HttpError,
+} from "#lib/api/event-api.ts";
+import type {
+  EventDetails,
+  Registration,
+  RegistrationRequest,
+} from "#lib/api/types.ts";
+import RegistrationConfirmation from "#lib/components/RegistrationConfirmation.svelte";
+import RegistrationForm from "#lib/components/RegistrationForm.svelte";
+import {
+  clearRegistrationAccess,
+  readRegistrationAccess,
+  saveRegistrationAccess,
+} from "#lib/registration-access.ts";
 
-    const registrationStorageKey =
-        "eventlab:registration-access:sound-workshop";
+type RestoreState =
+  | { status: "loading" }
+  | { status: "ready" }
+  | { status: "error"; message: string };
 
-    let name = $state("");
-    let email = $state("");
+let registration = $state<Registration | null>(null);
+let submitting = $state(false);
+let registrationError = $state("");
 
-    let registration = $state<Registration | null>(null);
-    let submitting = $state(false);
-    let registrationError = $state("");
+let event = $state<EventDetails | null>(null);
+let eventLoading = $state(true);
+let eventRefreshing = $state(false);
+let eventError = $state("");
 
-    let event = $state<EventDetails | null>(null);
-    let eventLoading = $state(true);
-    let eventError = $state("");
+let restoreState = $state<RestoreState>({ status: "loading" });
+let storageWarning = $state("");
 
-    let restoringRegistration = $state(true);
-    let restoreError = $state("");
-    let storageWarning = $state("");
+onMount(() => {
+  void loadEvent();
+});
 
-    async function loadEvent() {
-        eventLoading = true;
-        eventError = "";
+onMount(() => {
+  void restoreRegistration();
+});
 
-        try {
-            const response = await fetch("http://localhost:8080/api/event");
+async function loadEvent() {
+  if (eventRefreshing) {
+    return;
+  }
+  eventLoading = event === null;
+  eventRefreshing = event !== null;
+  eventError = "";
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
+  try {
+    event = await getEvent();
+  } catch (error) {
+    console.error("Не удалось загрузить мероприятие", error);
+    eventError =
+      event === null
+        ? "Не удалось загрузить мероприятие. Попробуйте позже."
+        : "Не удалось обновить количество мест. Показаны последние полученные данные.";
+  } finally {
+    eventLoading = false;
+    eventRefreshing = false;
+  }
+}
 
-            event = await response.json();
-        } catch (error) {
-            console.error("Не удалось загрузить мероприятие", error);
-            eventError = "Не удалось загрузить мероприятие. Попробуйте позже.";
-        } finally {
-            eventLoading = false;
-        }
-    }
+async function register(request: RegistrationRequest) {
+  if (!event || submitting || registration) {
+    return;
+  }
 
-    onMount(() => {
-        void loadEvent();
+  const normalizedName = request.name.trim();
+  const normalizedEmail = request.email.trim();
+
+  if (!normalizedEmail || !normalizedName) {
+    registrationError = "Укажите имя и email";
+    return;
+  }
+
+  submitting = true;
+  registrationError = "";
+
+  try {
+    const result = await createRegistration({
+      name: normalizedName,
+      email: normalizedEmail,
     });
 
-    onMount(() => {
-        void restoreRegistration();
-    });
+    registration = result.registration;
+    storageWarning = "";
 
-    async function register(e: SubmitEvent) {
-        e.preventDefault();
-
-        if (!event || submitting || registration) {
-            return;
-        }
-
-        const normalizedName = name.trim();
-        const normalizedEmail = email.trim();
-
-        if (!normalizedEmail || !normalizedName) {
-            registrationError = "Укажите имя и email";
-            return;
-        }
-
-        submitting = true;
-        registrationError = "";
-
-        try {
-            const response = await fetch(
-                "http://localhost:8080/api/event/registrations",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        name: normalizedName,
-                        email: normalizedEmail,
-                    }),
-                },
-            );
-
-            if (response.status === 409) {
-                registrationError =
-                    "Регистрация отклонена: мест нет или этот email уже зарегистрирован.";
-                await loadEvent();
-                return;
-            }
-
-            if (response.status === 400) {
-                registrationError = "Проверьте имя и email.";
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const result: RegistrationCreatedResponse = await response.json();
-
-            registration = result.registration;
-            storageWarning = "";
-
-            const access: RegistrationAccess = {
-                id: result.registration.id,
-                accessToken: result.accessToken,
-            };
-
-            try {
-                localStorage.setItem(
-                    registrationStorageKey,
-                    JSON.stringify(access),
-                );
-            } catch {
-                storageWarning =
-                    "Регистрация создана, но браузер не сохранил ключ доступа. " +
-                    "После обновления страницы автоматическое восстановление не сработает.";
-            }
-            await loadEvent();
-        } catch (error) {
-            console.error("Ошибка регистрации:", error);
-            registrationError =
-                "Не удалось получить подтверждение от сервера. Статус заявки неизвестен.";
-        } finally {
-            submitting = false;
-        }
+    try {
+      saveRegistrationAccess({
+        id: result.registration.id,
+        accessToken: result.accessToken,
+      });
+    } catch {
+      storageWarning =
+        "Регистрация создана, но браузер не сохранил ключ доступа. " +
+        "После обновления страницы автоматическое восстановление не сработает.";
     }
 
-    async function restoreRegistration() {
-        restoringRegistration = true;
-        restoreError = "";
-
-        try {
-            const saved = localStorage.getItem(registrationStorageKey);
-
-            if (saved === null) {
-                return;
-            }
-
-            const access: unknown = JSON.parse(saved);
-
-            if (
-                typeof access !== "object" ||
-                access === null ||
-                !("id" in access) ||
-                !("accessToken" in access) ||
-                typeof access.id !== "string" ||
-                typeof access.accessToken !== "string" ||
-                !access.id ||
-                !access.accessToken
-            ) {
-                throw new Error("Invalid saved registration access");
-            }
-
-            const response = await fetch(
-                `http://localhost:8080/api/registrations/${encodeURIComponent(access.id)}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${access.accessToken}`,
-                    },
-                },
-            );
-
-            if (response.status === 404) {
-                localStorage.removeItem(registrationStorageKey);
-                registration = null;
-                storageWarning =
-                    "Сохранённая заявка недоступна: она отсутствует или ключ больше не подходит.";
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP: ${response.status}`);
-            }
-
-            registration = await response.json();
-        } catch {
-            restoreError =
-                "Не удалось восстановить регистрацию. Сохранённый ключ не удалён.";
-        } finally {
-            restoringRegistration = false;
-        }
+    await loadEvent();
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 409) {
+      registrationError =
+        "Регистрация отклонена: мест нет или этот email уже зарегистрирован.";
+      await loadEvent();
+      return;
     }
 
-    type Registration = {
-        id: string;
-        name: string;
-        email: string;
-    };
+    if (error instanceof HttpError && error.status === 400) {
+      registrationError = "Проверьте имя и email";
+      return;
+    }
 
-    type RegistrationCreatedResponse = {
-        registration: Registration;
-        accessToken: string;
-    };
+    console.error("Ошибка регистрации:", error);
+    registrationError =
+      "Не удалось получить подтверждение от сервера. Статус заявки неизвестен.";
+  } finally {
+    submitting = false;
+  }
+}
 
-    type RegistrationAccess = {
-        id: string;
-        accessToken: string;
-    };
+async function restoreRegistration() {
+  restoreState = { status: "loading" };
 
-    type EventDetails = {
-        id: string;
-        title: string;
-        description: string;
-        dateLabel: string;
-        timeLabel: string;
-        venue: string;
-        capacity: number;
-        availableSeats: number;
+  try {
+    const access = readRegistrationAccess();
+
+    if (access === null) {
+      restoreState = { status: "ready" };
+      return;
+    }
+
+    try {
+      registration = await getRegistration(access.id, access.accessToken);
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        clearRegistrationAccess();
+        registration = null;
+        storageWarning =
+          "Сохранённая заявка недоступна: она отсутствует или ключ больше не подходит.";
+        restoreState = { status: "ready" };
+        return;
+      }
+
+      throw error;
+    }
+
+    restoreState = { status: "ready" };
+  } catch {
+    restoreState = {
+      status: "error",
+      message:
+        "Не удалось восстановить регистрацию. Сохраненный ключ не удален.",
     };
+  }
+}
 </script>
 
 <svelte:head>
-    <title>{event ? `${event.title} – EventLab` : "EventLab"}</title>
+  <title>{event ? `${event.title} – EventLab` : "EventLab"}</title>
 </svelte:head>
 
 <main>
-    {#if eventLoading}
-        <p role="status">Загружаем мероприятие...</p>
+  {#if eventLoading}
+    <p class="notice" role="status">Загружаем мероприятие...</p>
+  {:else if eventError && !event}
+    <p class="notice notice--error" role="alert">{eventError}</p>
+    <button class="button button--secondary" type="button" onclick={loadEvent}>
+      Попробовать снова
+    </button>
+  {:else if event}
+    <p class="eyebrow">Открытая лекция и мастер-класс</p>
+    <h1>{event.title}</h1>
+
+    <div class="description">
+      <p>{event.description}</p>
+    </div>
+
+    <section class="details card" aria-label="Информация для участников">
+      <div>
+        <h2>Когда и где</h2>
+        <p>{event.dateLabel}, {event.timeLabel}.</p>
+        <p>{event.venue}.</p>
+      </div>
+
+      <div>
+        <h2>Условия участия</h2>
+        <p>Всего мест: {event.capacity}.</p>
+        <p aria-live="polite">Свободных мест: {event.availableSeats}.</p>
+      </div>
+    </section>
+
+    {#if eventRefreshing}
+      <p class="notice" role="status">Обновляем количество мест...</p>
     {:else if eventError}
-        <p role="alert">{eventError}</p>
-        <button type="button" onclick={loadEvent}>Попробовать снова</button>
-    {:else if event}
-        <p class="eyebrow">Открытая лекция и мастер-класс</p>
-        <h1>{event.title}</h1>
-
-        <div class="description">
-            <p>{event.description}</p>
-        </div>
-
-        <section class="details" aria-label="Информация для участников">
-            <h2>Когда и где</h2>
-            <p>{event.dateLabel}, {event.timeLabel}.</p>
-            <p>{event.venue}.</p>
-
-            <h2>Условия участия</h2>
-            <p>Всего мест: {event.capacity}.</p>
-            <p aria-live="polite">
-                Свободных мест: {event.availableSeats}.
-            </p>
-        </section>
-
-        <p>Демонстрация регистрации: сохраняется только в этом браузере.</p>
-
-        {#if storageWarning}
-            <p role="status">{storageWarning}</p>
-        {/if}
-
-        {#if restoringRegistration}
-            <p role="status">Проверяем вашу регистрацию...</p>
-        {:else if restoreError}
-            <p role="alert">{restoreError}</p>
-
-            <button type="button" onclick={restoreRegistration}>
-                Повторить проверку регистрации
-            </button>
-        {:else if registration}
-            <div role="status">
-                <p>
-                    {registration.name}, сервер подтвердил вашу регистрацию.
-                </p>
-                <p>Email: {registration.email}</p>
-                <p>Номер заявки: {registration.id}</p>
-            </div>
-        {:else}
-            <form onsubmit={register} aria-busy={submitting}>
-                <label>
-                    Имя
-                    <input
-                        name="name"
-                        autocomplete="name"
-                        bind:value={name}
-                        required
-                        pattern=".*\S.*"
-                        title="Введите имя, содержащее не только пробелы"
-                        disabled={submitting}
-                    />
-                </label>
-
-                <label>
-                    Email
-                    <input
-                        type="email"
-                        name="email"
-                        autocomplete="email"
-                        bind:value={email}
-                        required
-                        disabled={submitting}
-                    />
-                </label>
-
-                {#if registrationError}
-                    <p role="alert">{registrationError}</p>
-                {/if}
-
-                <button type="submit" disabled={submitting}>
-                    {submitting ? "Отправляем заявку…" : "Записаться"}
-                </button>
-            </form>
-        {/if}
+      <p class="notice notice--warning" role="alert">{eventError}</p>
+      <button
+        class="button button--secondary"
+        type="button"
+        onclick={loadEvent}
+      >
+        Обновить количество мест
+      </button>
     {/if}
+    <p class="storage-note">
+      Заявка хранится на сервере. Ключ доступа сохраняется в этом браузере.
+    </p>
+
+    {#if storageWarning}
+      <p class="notice notice--warning" role="status">{storageWarning}</p>
+    {/if}
+
+    {#if restoreState.status === "loading"}
+      <p class="notice" role="status">Проверяем вашу регистрацию...</p>
+    {:else if restoreState.status === "error"}
+      <p class="notice notice--error" role="alert">{restoreState.message}</p>
+
+      <button
+        class="button button--secondary"
+        type="button"
+        onclick={restoreRegistration}
+      >
+        Повторить проверку регистрации
+      </button>
+    {:else if registration}
+      <RegistrationConfirmation {registration} />
+    {:else}
+      <RegistrationForm
+        {submitting}
+        {registrationError}
+        onRegister={register}
+      />
+    {/if}
+  {/if}
 </main>
 
 <style>
-    :global(body) {
-        margin: 0;
-        background: #f5f5f2;
-        color: #202622;
-        font-family: system-ui, sans-serif;
-        line-height: 1.6;
-    }
+main {
+  max-width: 50rem;
+  margin-inline: auto;
+  padding: clamp(var(--space-8), 5vw, var(--space-12)) var(--space-4);
+}
 
-    main {
-        max-width: 48rem;
-        margin-inline: auto;
-        padding: 3rem 1.25rem;
-    }
+.eyebrow {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
 
-    .eyebrow {
-        color: #47644e;
-        font-weight: 600;
-    }
+h1 {
+  margin-block: var(--space-4) var(--space-6);
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  line-height: 1.1;
+}
 
-    h1 {
-        margin-block: 1rem 1.5rem;
-        font-size: clamp(2rem, 6vw, 3.5rem);
-        line-height: 1.1;
-    }
+.description {
+  max-width: 65ch;
+  font-size: 1.125rem;
+}
 
-    .description {
-        font-size: 1.125rem;
-    }
+.details {
+  display: grid;
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+}
 
-    .details {
-        margin-top: 2rem;
-        padding: 1.5rem;
-        background: white;
-        border: 1px solid #dce2da;
-        border-radius: 1rem;
-    }
+h2 {
+  margin-block: var(--space-6) var(--space-2);
+  font-size: 1.125rem;
+}
 
-    h2 {
-        margin-block: 1.5rem 0.5rem;
-        font-size: 1.125rem;
-    }
+h2:first-child {
+  margin-top: 0;
+}
 
-    h2:first-child {
-        margin-top: 0;
-    }
+p {
+  margin-block: var(--space-2);
+}
 
-    p {
-        margin-block: 0.5rem;
-    }
+.storage-note {
+  margin-block: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
 
-    form {
-        display: grid;
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-
-    label {
-        display: grid;
-        gap: 0.375rem;
-    }
-
-    input {
-        min-width: 0;
-        padding: 0.75rem;
-        border: 1px solid #89968b;
-        border-radius: 0.5rem;
-        font: inherit;
-    }
-
-    button {
-        padding: 0.75rem 1rem;
-        border: 0;
-        border-radius: 0.5rem;
-        background: #285c3a;
-        color: white;
-        font: inherit;
-        cursor: pointer;
-    }
-
-    button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    input:focus-visible,
-    button:focus-visible {
-        outline: 3px solid #326fc1;
-        outline-offset: 3px;
-    }
+@media (min-width: 40rem) {
+  .details {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+}
 </style>

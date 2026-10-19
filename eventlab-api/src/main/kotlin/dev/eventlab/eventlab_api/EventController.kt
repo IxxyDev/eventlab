@@ -47,6 +47,19 @@ data class StoredRegistration(
     val accessToken: String,
 )
 
+enum class RegistrationErrorCode {
+    EMAIL_ALREADY_REGISTERED,
+    EVENT_FULL
+}
+
+data class RegistrationErrorResponse(
+    val code: RegistrationErrorCode
+)
+
+class RegistrationConflictException(
+    val code: RegistrationErrorCode
+) : RuntimeException(code.name)
+
 @RestController
 @CrossOrigin(origins = ["http://localhost:5173"])
 class EventController {
@@ -71,16 +84,14 @@ class EventController {
         }
 
         if (registrations.any { it.registration.email.equals(email, ignoreCase = true) }) {
-            throw ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "This email is already registered"
+            throw RegistrationConflictException(
+                RegistrationErrorCode.EMAIL_ALREADY_REGISTERED
             )
         }
 
         if (registrations.size >= capacity) {
-            throw ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "No seats available"
+            throw RegistrationConflictException(
+                RegistrationErrorCode.EVENT_FULL
             )
         }
 
@@ -101,6 +112,12 @@ class EventController {
             registration = registration,
             accessToken = accessToken
         )
+    }
+
+    fun handleRegistrationConflict(
+        exception: RegistrationConflictException
+    ): RegistrationErrorResponse {
+        return RegistrationErrorResponse(code = exception.code)
     }
     
     @GetMapping("/api/event")
