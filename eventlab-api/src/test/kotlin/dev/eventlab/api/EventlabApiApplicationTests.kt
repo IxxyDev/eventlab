@@ -1,4 +1,4 @@
-package dev.eventlab.eventlab_api
+package dev.eventlab.api
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest

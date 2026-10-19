@@ -1,4 +1,4 @@
-package dev.eventlab.eventlab_api
+package dev.eventlab.api
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication

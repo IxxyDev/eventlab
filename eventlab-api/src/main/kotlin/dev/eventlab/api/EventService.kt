@@ -1,13 +1,5 @@
-package dev.eventlab.eventlab_api
+package dev.eventlab.api
 
-import dev.eventlab.eventlab_api.EventResponse
-import dev.eventlab.eventlab_api.RegistrationConflictException
-import dev.eventlab.eventlab_api.RegistrationCreatedResponse
-import dev.eventlab.eventlab_api.RegistrationErrorCode
-import dev.eventlab.eventlab_api.RegistrationRequest
-import dev.eventlab.eventlab_api.RegistrationResponse
-import dev.eventlab.eventlab_api.RegistrationValidationException
-import dev.eventlab.eventlab_api.StoredRegistration
 import org.springframework.stereotype.Service
 import java.security.MessageDigest
 import java.security.SecureRandom

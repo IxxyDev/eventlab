@@ -1,4 +1,4 @@
-package dev.eventlab.eventlab_api
+package dev.eventlab.api
 
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
