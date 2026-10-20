@@ -1,0 +1,23 @@
+{
+  "tab_size": 2,
+  "hard_tabs": false,
+  "preferred_line_length": 80,
+  "wrap_guides": [80],
+  "languages": {
+    "Kotlin": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "ktlint",
+          "arguments": [
+            "--format",
+            "--stdin",
+            "--log-level=none",
+            "--stdin-path",
+            "{buffer_path}"
+          ]
+        }
+      }
+    }
+  }
+}
