@@ -13,7 +13,6 @@ private const val EVENT_ID = "sound-workshop"
 class EventService(
   private val jdbcClient: JdbcClient,
 ) {
-  private val registrations = mutableListOf<StoredRegistration>()
   private val secureRandom = SecureRandom()
 
   @Synchronized
@@ -40,36 +39,40 @@ class EventService(
       )
     }
 
-    if (registrations.any {
-        it.registration.email.equals(email, ignoreCase = true)
-      }
-    ) {
+    if (isEmailRegistered(email)) {
       throw RegistrationConflictException(
         RegistrationErrorCode.EMAIL_ALREADY_REGISTERED,
       )
     }
 
-    if (registrations.size >= findEvent().capacity) {
+    if (countRegistrations() >= findEvent().capacity) {
       throw RegistrationConflictException(
         RegistrationErrorCode.EVENT_FULL,
       )
     }
 
+    val id = UUID.randomUUID()
     val registration =
       RegistrationResponse(
-        id = UUID.randomUUID().toString(),
+        id = id.toString(),
         name = name,
         email = email,
       )
 
     val accessToken = generateAccessToken()
 
-    registrations.add(
-      StoredRegistration(
-        registration = registration,
-        accessToken = accessToken,
-      ),
-    )
+    jdbcClient
+      .sql(
+        """
+        INSERT INTO registrations (id, event_id, name, email, access_token)
+        VALUES (:id, :eventId, :name, :email, :accessToken)
+        """.trimIndent(),
+      ).param("id", id)
+      .param("eventId", EVENT_ID)
+      .param("name", name)
+      .param("email", email)
+      .param("accessToken", accessToken)
+      .update()
 
     return RegistrationCreatedResponse(
       registration = registration,
@@ -89,7 +92,7 @@ class EventService(
       timeLabel = event.timeLabel,
       venue = event.venue,
       capacity = event.capacity,
-      availableSeats = event.capacity - registrations.size,
+      availableSeats = event.capacity - countRegistrations(),
     )
   }
 
@@ -98,10 +101,8 @@ class EventService(
     id: String,
     token: String?,
   ): RegistrationResponse? {
-    val stored =
-      registrations.find {
-        it.registration.id == id
-      }
+    val registrationId = parseUuid(id) ?: return null
+    val stored = findRegistration(registrationId)
 
     if (stored == null || token.isNullOrEmpty()) {
       return null
@@ -129,9 +130,13 @@ class EventService(
       getRegistration(id, token)
         ?: return false
 
-    return registrations.removeAll {
-      it.registration.id == registration.id
-    }
+    val deletedCount =
+      jdbcClient
+        .sql("DELETE FROM registrations WHERE id = :id")
+        .param("id", UUID.fromString(registration.id))
+        .update()
+
+    return deletedCount > 0
   }
 
   private fun generateAccessToken(): String {
@@ -164,6 +169,63 @@ class EventService(
           capacity = rs.getInt("capacity"),
         )
       }.single()
+
+  private fun countRegistrations(): Int =
+    jdbcClient
+      .sql(
+        """
+        SELECT COUNT(*)
+        FROM registrations
+        WHERE event_id = :eventId
+        """.trimIndent(),
+      ).param("eventId", EVENT_ID)
+      .query(Int::class.java)
+      .single()
+
+  private fun isEmailRegistered(email: String): Boolean =
+    jdbcClient
+      .sql(
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM registrations
+          WHERE event_id = :eventId
+            AND LOWER(email) = LOWER(:email)
+        )
+        """.trimIndent(),
+      ).param("eventId", EVENT_ID)
+      .param("email", email)
+      .query(Boolean::class.java)
+      .single()
+
+  private fun findRegistration(id: UUID): StoredRegistration? =
+    jdbcClient
+      .sql(
+        """
+        SELECT id, name, email, access_token
+        FROM registrations
+        WHERE id = :id
+        """.trimIndent(),
+      ).param("id", id)
+      .query { rs, _ ->
+        StoredRegistration(
+          registration =
+            RegistrationResponse(
+              id = rs.getString("id"),
+              name = rs.getString("name"),
+              email = rs.getString("email"),
+            ),
+          accessToken = rs.getString("access_token"),
+        )
+      }.list()
+      .firstOrNull()
+
+  private fun parseUuid(value: String): UUID? =
+    try {
+      UUID.fromString(value)
+    } catch (e: IllegalArgumentException) {
+      null
+    }
 
   private data class EventRow(
     val id: String,

@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -25,11 +26,10 @@ class EventControllerTests {
 
   @BeforeEach
   fun setUp() {
+    jdbcClient.sql("DELETE FROM registrations").update()
+
     val eventService = EventService(jdbcClient)
-    mvc =
-      MockMvcBuilders
-        .standaloneSetup(EventController(eventService))
-        .build()
+    mvc = createMvc()
   }
 
   @Test
@@ -356,4 +356,75 @@ class EventControllerTests {
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
+
+  @Test
+  fun `should keep seat occupied after service restart`() {
+    val requestBody =
+      """
+      {
+        "name": "Anna",
+        "email": "anna@example.com"
+      }
+      """.trimIndent()
+    mvc.perform(
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody),
+    )
+    val restartedMvc = createMvc()
+
+    val eventResult = restartedMvc.perform(get("/api/event"))
+
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.availableSeats").value(0))
+  }
+
+  @Test
+  fun `should reject duplicate email after service restart`() {
+    mvc.perform(registrationRequest("Anna", "anna@example.com"))
+    val restartedMvc = createMvc()
+
+    val result =
+      restartedMvc.perform(registrationRequest("Anna", "anna@example.com"))
+
+    result
+      .andExpect(status().isConflict())
+      .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"))
+  }
+
+  @Test
+  fun `should return registration after service restart`() {
+    val responseBody =
+      mvc
+        .perform(registrationRequest("Anna", "anna@example.com"))
+        .andReturn()
+        .response
+        .contentAsString
+    val id = JsonPath.read<String>(responseBody, "$.registration.id")
+    val accessToken = JsonPath.read<String>(responseBody, "$.accessToken")
+    val restartedMvc = createMvc()
+    val readRequest =
+      get("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $accessToken")
+
+    val result = restartedMvc.perform(readRequest)
+
+    result
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.id").value(id))
+  }
+
+  private fun createMvc(): MockMvc =
+    MockMvcBuilders
+      .standaloneSetup(EventController(EventService(jdbcClient)))
+      .build()
+
+  private fun registrationRequest(
+    name: String,
+    email: String,
+  ): MockHttpServletRequestBuilder =
+    post("/api/event/registrations")
+      .contentType(MediaType.APPLICATION_JSON)
+      .content("""{"name": "$name", "email": "$email"}""")
 }
