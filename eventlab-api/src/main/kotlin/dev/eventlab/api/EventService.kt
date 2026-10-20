@@ -1,15 +1,19 @@
 package dev.eventlab.api
 
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.UUID
 
+private const val EVENT_ID = "sound-workshop"
+
 @Service
-class EventService {
+class EventService(
+  private val jdbcClient: JdbcClient,
+) {
   private val registrations = mutableListOf<StoredRegistration>()
-  private val capacity = 1
   private val secureRandom = SecureRandom()
 
   @Synchronized
@@ -45,7 +49,7 @@ class EventService {
       )
     }
 
-    if (registrations.size >= capacity) {
+    if (registrations.size >= findEvent().capacity) {
       throw RegistrationConflictException(
         RegistrationErrorCode.EVENT_FULL,
       )
@@ -74,19 +78,20 @@ class EventService {
   }
 
   @Synchronized
-  fun getEvent(): EventResponse =
-    EventResponse(
-      id = "sound-workshop",
-      title = "Как устроен звук на концерте",
-      description =
-        "Разберём путь звука от микрофона до колонок " +
-          "и попробуем настроить небольшой концертный микс.",
-      dateLabel = "14 ноября 2026 года",
-      timeLabel = "18:00–20:00, по Москве",
-      venue = "Пространство «Сцена», зал № 2",
-      capacity = capacity,
-      availableSeats = capacity - registrations.size,
+  fun getEvent(): EventResponse {
+    val event = findEvent()
+
+    return EventResponse(
+      id = event.id,
+      title = event.title,
+      description = event.description,
+      dateLabel = event.dateLabel,
+      timeLabel = event.timeLabel,
+      venue = event.venue,
+      capacity = event.capacity,
+      availableSeats = event.capacity - registrations.size,
     )
+  }
 
   @Synchronized
   fun getRegistration(
@@ -138,4 +143,35 @@ class EventService {
       .withoutPadding()
       .encodeToString(bytes)
   }
+
+  private fun findEvent(): EventRow =
+    jdbcClient
+      .sql(
+        """
+        SELECT id, title, description, date_label, time_label, venue, capacity
+        FROM events
+        WHERE id = :id
+        """.trimIndent(),
+      ).param("id", EVENT_ID)
+      .query { rs, _ ->
+        EventRow(
+          id = rs.getString("id"),
+          title = rs.getString("title"),
+          description = rs.getString("description"),
+          dateLabel = rs.getString("date_label"),
+          timeLabel = rs.getString("time_label"),
+          venue = rs.getString("venue"),
+          capacity = rs.getInt("capacity"),
+        )
+      }.single()
+
+  private data class EventRow(
+    val id: String,
+    val title: String,
+    val description: String,
+    val dateLabel: String,
+    val timeLabel: String,
+    val venue: String,
+    val capacity: Int,
+  )
 }

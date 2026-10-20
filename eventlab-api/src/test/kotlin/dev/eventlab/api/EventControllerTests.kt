@@ -3,7 +3,10 @@ package dev.eventlab.api
 import com.jayway.jsonpath.JsonPath
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -12,12 +15,15 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
+@SpringBootTest
 class EventControllerTests {
+  @Autowired
+  private lateinit var jdbcClient: JdbcClient
   private lateinit var mvc: MockMvc
 
   @BeforeEach
   fun setUp() {
-    val eventService = EventService()
+    val eventService = EventService(jdbcClient)
     mvc =
       MockMvcBuilders
         .standaloneSetup(EventController(eventService))
