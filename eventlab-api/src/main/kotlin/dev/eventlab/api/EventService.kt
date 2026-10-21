@@ -2,6 +2,7 @@ package dev.eventlab.api
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
+import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
@@ -12,6 +13,7 @@ private const val EVENT_ID = "sound-workshop"
 @Service
 class EventService(
   private val jdbcClient: JdbcClient,
+  private val transactionTemplate: TransactionTemplate,
 ) {
   private val secureRandom = SecureRandom()
 
@@ -39,45 +41,49 @@ class EventService(
       )
     }
 
-    if (isEmailRegistered(email)) {
-      throw RegistrationConflictException(
-        RegistrationErrorCode.EMAIL_ALREADY_REGISTERED,
+    return transactionTemplate.execute {
+      val capacity = lockEventCapacity()
+
+      if (isEmailRegistered(email)) {
+        throw RegistrationConflictException(
+          RegistrationErrorCode.EMAIL_ALREADY_REGISTERED,
+        )
+      }
+
+      if (countRegistrations() >= capacity) {
+        throw RegistrationConflictException(
+          RegistrationErrorCode.EVENT_FULL,
+        )
+      }
+
+      val id = UUID.randomUUID()
+      val registration =
+        RegistrationResponse(
+          id = id.toString(),
+          name = name,
+          email = email,
+        )
+
+      val accessToken = generateAccessToken()
+
+      jdbcClient
+        .sql(
+          """
+          INSERT INTO registrations (id, event_id, name, email, access_token)
+          VALUES (:id, :eventId, :name, :email, :accessToken)
+          """.trimIndent(),
+        ).param("id", id)
+        .param("eventId", EVENT_ID)
+        .param("name", name)
+        .param("email", email)
+        .param("accessToken", accessToken)
+        .update()
+
+      RegistrationCreatedResponse(
+        registration = registration,
+        accessToken = accessToken,
       )
     }
-
-    if (countRegistrations() >= findEvent().capacity) {
-      throw RegistrationConflictException(
-        RegistrationErrorCode.EVENT_FULL,
-      )
-    }
-
-    val id = UUID.randomUUID()
-    val registration =
-      RegistrationResponse(
-        id = id.toString(),
-        name = name,
-        email = email,
-      )
-
-    val accessToken = generateAccessToken()
-
-    jdbcClient
-      .sql(
-        """
-        INSERT INTO registrations (id, event_id, name, email, access_token)
-        VALUES (:id, :eventId, :name, :email, :accessToken)
-        """.trimIndent(),
-      ).param("id", id)
-      .param("eventId", EVENT_ID)
-      .param("name", name)
-      .param("email", email)
-      .param("accessToken", accessToken)
-      .update()
-
-    return RegistrationCreatedResponse(
-      registration = registration,
-      accessToken = accessToken,
-    )
   }
 
   @Synchronized
@@ -226,6 +232,19 @@ class EventService(
     } catch (e: IllegalArgumentException) {
       null
     }
+
+  private fun lockEventCapacity(): Int =
+    jdbcClient
+      .sql(
+        """
+        SELECT capacity
+        FROM events
+        WHERE id = :id
+        FOR UPDATE
+        """.trimIndent(),
+      ).param("id", EVENT_ID)
+      .query(Int::class.java)
+      .single()
 
   private data class EventRow(
     val id: String,

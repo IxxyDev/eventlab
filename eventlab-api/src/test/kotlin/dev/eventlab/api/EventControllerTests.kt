@@ -16,19 +16,29 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.transaction.support.TransactionTemplate
+import java.util.concurrent.Callable
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import javax.sql.DataSource
+import kotlin.test.assertEquals
 
 @SpringBootTest
 @Import(TestContainersConfiguration::class)
 class EventControllerTests {
   @Autowired
   private lateinit var jdbcClient: JdbcClient
+
+  @Autowired
+  private lateinit var transactionTemplate: TransactionTemplate
+
+  @Autowired
+  private lateinit var dataSource: DataSource
   private lateinit var mvc: MockMvc
 
   @BeforeEach
   fun setUp() {
     jdbcClient.sql("DELETE FROM registrations").update()
-
-    val eventService = EventService(jdbcClient)
     mvc = createMvc()
   }
 
@@ -159,6 +169,42 @@ class EventControllerTests {
     registrationResult
       .andExpect(status().isConflict())
       .andExpect(jsonPath("$.code").value("EVENT_FULL"))
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.availableSeats").value(0))
+  }
+
+  @Test
+  fun `should give the last seat to only one of many simultaneous participants`() {
+    val participantCount = 10
+    val connections = (1..participantCount).map { dataSource.connection }
+    connections.forEach { it.close() }
+    val startLine = CyclicBarrier(participantCount)
+    val requests =
+      (1..participantCount).map { number ->
+        val server = createMvc()
+        Callable {
+          startLine.await()
+          server
+            .perform(
+              registrationRequest(
+                "Participant $number",
+                "participant$number@example.com",
+              ),
+            ).andReturn()
+            .response
+            .status
+        }
+      }
+
+    val statuses =
+      Executors.newFixedThreadPool(participantCount).use { executor ->
+        executor.invokeAll(requests).map { it.get() }
+      }
+    val eventResult = mvc.perform(get("/api/event"))
+
+    assertEquals(1, statuses.count { it == 201 })
+    assertEquals(participantCount - 1, statuses.count { it == 409 })
     eventResult
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
@@ -417,8 +463,9 @@ class EventControllerTests {
 
   private fun createMvc(): MockMvc =
     MockMvcBuilders
-      .standaloneSetup(EventController(EventService(jdbcClient)))
-      .build()
+      .standaloneSetup(
+        EventController(EventService(jdbcClient, transactionTemplate)),
+      ).build()
 
   private fun registrationRequest(
     name: String,
