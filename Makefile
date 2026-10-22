@@ -13,7 +13,7 @@ api:
 	cd eventlab-api && ./gradlew bootRun
 
 test:
-	cd eventlab-api && ./gradlew check
+	cd eventlab-api && ./gradlew test --rerun check
 
 format:
 	cd eventlab-api && ./gradlew spotlessApply
