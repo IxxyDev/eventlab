@@ -25,7 +25,7 @@ import kotlin.test.assertEquals
 
 @SpringBootTest
 @Import(TestContainersConfiguration::class)
-class EventControllerTests {
+class EventApiTests {
   @Autowired
   private lateinit var jdbcClient: JdbcClient
 
@@ -461,11 +461,23 @@ class EventControllerTests {
       .andExpect(jsonPath("$.id").value(id))
   }
 
-  private fun createMvc(): MockMvc =
-    MockMvcBuilders
+  private fun createMvc(): MockMvc {
+    val eventRepository = EventRepository(jdbcClient)
+    val registrationRepository = RegistrationRepository(jdbcClient)
+
+    return MockMvcBuilders
       .standaloneSetup(
-        EventController(EventService(jdbcClient, transactionTemplate)),
-      ).build()
+        EventController(EventService(eventRepository, registrationRepository)),
+        RegistrationController(
+          RegistrationService(
+            eventRepository,
+            registrationRepository,
+            transactionTemplate,
+          ),
+        ),
+      ).setControllerAdvice(ApiExceptionHandler())
+      .build()
+  }
 
   private fun registrationRequest(
     name: String,
