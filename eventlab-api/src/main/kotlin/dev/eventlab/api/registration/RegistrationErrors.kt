@@ -1,4 +1,4 @@
-package dev.eventlab.api
+package dev.eventlab.api.registration
 
 enum class RegistrationErrorCode {
   REQUIRED_FIELDS,

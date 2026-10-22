@@ -1,5 +1,7 @@
-package dev.eventlab.api
+package dev.eventlab.api.registration
 
+import dev.eventlab.api.event.EVENT_ID
+import dev.eventlab.api.event.EventRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest

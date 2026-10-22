@@ -1,4 +1,4 @@
-package dev.eventlab.api
+package dev.eventlab.api.registration
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository

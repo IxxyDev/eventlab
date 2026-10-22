@@ -1,4 +1,4 @@
-package dev.eventlab.api
+package dev.eventlab.api.event
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
@@ -11,6 +11,7 @@ data class EventRow(
   val timeLabel: String,
   val venue: String,
   val capacity: Int,
+  val registrationCount: Int,
 )
 
 @Repository
@@ -21,7 +22,19 @@ class EventRepository(
     jdbcClient
       .sql(
         """
-        SELECT id, title, description, date_label, time_label, venue, capacity
+        SELECT
+          id,
+          title,
+          description,
+          date_label,
+          time_label,
+          venue,
+          capacity,
+          (
+            SELECT COUNT(*)
+            FROM registrations
+            WHERE registrations.event_id = events.id
+          ) AS registration_count
         FROM events
         WHERE id = :id
         """.trimIndent(),
@@ -35,6 +48,7 @@ class EventRepository(
           timeLabel = rs.getString("time_label"),
           venue = rs.getString("venue"),
           capacity = rs.getInt("capacity"),
+          registrationCount = rs.getInt("registration_count"),
         )
       }.single()
 

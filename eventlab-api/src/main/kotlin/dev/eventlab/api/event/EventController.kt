@@ -1,4 +1,4 @@
-package dev.eventlab.api
+package dev.eventlab.api.event
 
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping

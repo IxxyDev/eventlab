@@ -1,6 +1,13 @@
 package dev.eventlab.api
 
 import com.jayway.jsonpath.JsonPath
+import dev.eventlab.api.event.EventController
+import dev.eventlab.api.event.EventRepository
+import dev.eventlab.api.event.EventService
+import dev.eventlab.api.registration.RegistrationController
+import dev.eventlab.api.registration.RegistrationRepository
+import dev.eventlab.api.registration.RegistrationService
+import dev.eventlab.api.web.ApiExceptionHandler
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -467,7 +474,7 @@ class EventApiTests {
 
     return MockMvcBuilders
       .standaloneSetup(
-        EventController(EventService(eventRepository, registrationRepository)),
+        EventController(EventService(eventRepository)),
         RegistrationController(
           RegistrationService(
             eventRepository,

@@ -1,5 +1,8 @@
-package dev.eventlab.api
+package dev.eventlab.api.web
 
+import dev.eventlab.api.registration.RegistrationConflictException
+import dev.eventlab.api.registration.RegistrationErrorResponse
+import dev.eventlab.api.registration.RegistrationValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseStatus
