@@ -2,10 +2,12 @@ package dev.eventlab.api.registration
 
 import dev.eventlab.api.event.EVENT_ID
 import dev.eventlab.api.event.EventRepository
+import dev.eventlab.api.event.isRegistrationOpen
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.time.Clock
 import java.util.Base64
 import java.util.UUID
 
@@ -14,6 +16,7 @@ class RegistrationService(
   private val eventRepository: EventRepository,
   private val registrationRepository: RegistrationRepository,
   private val transactionTemplate: TransactionTemplate,
+  private val clock: Clock,
 ) {
   private val secureRandom = SecureRandom()
 
@@ -41,7 +44,13 @@ class RegistrationService(
     }
 
     return transactionTemplate.execute {
-      val capacity = eventRepository.lockCapacity(EVENT_ID)
+      val limits = eventRepository.lockRegistrationLimits(EVENT_ID)
+
+      if (!isRegistrationOpen(limits.startsAt, clock.instant())) {
+        throw RegistrationConflictException(
+          RegistrationErrorCode.REGISTRATION_CLOSED,
+        )
+      }
 
       if (registrationRepository.existsByEventAndEmail(EVENT_ID, email)) {
         throw RegistrationConflictException(
@@ -49,7 +58,7 @@ class RegistrationService(
         )
       }
 
-      if (registrationRepository.countByEvent(EVENT_ID) >= capacity) {
+      if (registrationRepository.countByEvent(EVENT_ID) >= limits.capacity) {
         throw RegistrationConflictException(
           RegistrationErrorCode.EVENT_FULL,
         )

@@ -2,16 +2,26 @@ package dev.eventlab.api.event
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
+import java.sql.ResultSet
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 data class EventRow(
   val id: String,
   val title: String,
   val description: String,
-  val dateLabel: String,
-  val timeLabel: String,
+  val startsAt: Instant,
+  val endsAt: Instant,
+  val timeZone: ZoneId,
   val venue: String,
   val capacity: Int,
   val registrationCount: Int,
+)
+
+data class RegistrationLimits(
+  val capacity: Int,
+  val startsAt: Instant,
 )
 
 @Repository
@@ -26,8 +36,9 @@ class EventRepository(
           id,
           title,
           description,
-          date_label,
-          time_label,
+          starts_at,
+          ends_at,
+          time_zone,
           venue,
           capacity,
           (
@@ -44,24 +55,32 @@ class EventRepository(
           id = rs.getString("id"),
           title = rs.getString("title"),
           description = rs.getString("description"),
-          dateLabel = rs.getString("date_label"),
-          timeLabel = rs.getString("time_label"),
+          startsAt = rs.getInstant("starts_at"),
+          endsAt = rs.getInstant("ends_at"),
+          timeZone = ZoneId.of(rs.getString("time_zone")),
           venue = rs.getString("venue"),
           capacity = rs.getInt("capacity"),
           registrationCount = rs.getInt("registration_count"),
         )
       }.single()
 
-  fun lockCapacity(id: String): Int =
+  fun lockRegistrationLimits(id: String): RegistrationLimits =
     jdbcClient
       .sql(
         """
-        SELECT capacity
+        SELECT capacity, starts_at
         FROM events
         WHERE id = :id
         FOR UPDATE
         """.trimIndent(),
       ).param("id", id)
-      .query(Int::class.java)
-      .single()
+      .query { rs, _ ->
+        RegistrationLimits(
+          capacity = rs.getInt("capacity"),
+          startsAt = rs.getInstant("starts_at"),
+        )
+      }.single()
+
+  private fun ResultSet.getInstant(column: String): Instant =
+    getObject(column, OffsetDateTime::class.java).toInstant()
 }

@@ -14,6 +14,7 @@ import type {
 } from "#lib/api/types.ts";
 import RegistrationConfirmation from "#lib/components/RegistrationConfirmation.svelte";
 import RegistrationForm from "#lib/components/RegistrationForm.svelte";
+import { formatEventSchedule } from "#lib/event-schedule.ts";
 import {
   clearRegistrationAccess,
   type RegistrationAccess,
@@ -118,6 +119,11 @@ async function register(request: RegistrationRequest) {
       switch (error.code) {
         case "EMAIL_ALREADY_REGISTERED":
           registrationError = "Этот email уже зарегистрирован на мероприятие.";
+          break;
+
+        case "REGISTRATION_CLOSED":
+          event = { ...event, registrationOpen: false };
+          registrationError = "Регистрация закрыта: мероприятие уже началось.";
           break;
 
         case "EVENT_FULL":
@@ -270,7 +276,10 @@ async function restoreRegistration() {
     <section class="details card" aria-label="Информация для участников">
       <div>
         <h2>Когда и где</h2>
-        <p>{event.dateLabel}, {event.timeLabel}.</p>
+        <p>
+          <time datetime={event.startsAt}>{formatEventSchedule(event)}</time>
+          по местному времени.
+        </p>
         <p>{event.venue}.</p>
       </div>
 
@@ -324,6 +333,10 @@ async function restoreRegistration() {
         {cancelError}
         onCancel={cancel}
       />
+    {:else if !event.registrationOpen}
+      <p class="notice" role="status">
+        Регистрация закрыта: мероприятие уже началось.
+      </p>
     {:else if event.availableSeats === 0}
       <p class="notice" role="status">
         Свободные места закончились. Запись закрыта.

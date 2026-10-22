@@ -6,6 +6,7 @@ enum class RegistrationErrorCode {
   INVALID_EMAIL,
   EMAIL_ALREADY_REGISTERED,
   EVENT_FULL,
+  REGISTRATION_CLOSED,
 }
 
 class RegistrationConflictException(

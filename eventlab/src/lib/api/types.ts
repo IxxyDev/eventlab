@@ -18,9 +18,11 @@ export type EventDetails = {
   id: string;
   title: string;
   description: string;
-  dateLabel: string;
-  timeLabel: string;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
   venue: string;
   capacity: number;
   availableSeats: number;
+  registrationOpen: boolean;
 };

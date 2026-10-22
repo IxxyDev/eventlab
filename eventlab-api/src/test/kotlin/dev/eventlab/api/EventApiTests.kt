@@ -24,6 +24,9 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.CyclicBarrier
@@ -491,23 +494,68 @@ class EventApiTests {
     assertFalse(storedRow.contains(accessToken))
   }
 
-  private fun createMvc(): MockMvc {
+  @Test
+  fun `should return event schedule with event time zone`() {
+    val eventResult = mvc.perform(get("/api/event"))
+
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.startsAt").value("2026-11-14T15:00:00Z"))
+      .andExpect(jsonPath("$.endsAt").value("2026-11-14T17:00:00Z"))
+      .andExpect(jsonPath("$.timeZone").value("Europe/Moscow"))
+      .andExpect(jsonPath("$.registrationOpen").value(true))
+  }
+
+  @Test
+  fun `should reject registration once event has started`() {
+    val startedMvc = createMvc(fixedClock("2026-11-14T15:00:00Z"))
+
+    val registrationResult =
+      startedMvc.perform(registrationRequest("Anna", "anna@example.com"))
+    val eventResult = startedMvc.perform(get("/api/event"))
+
+    registrationResult
+      .andExpect(status().isConflict())
+      .andExpect(jsonPath("$.code").value("REGISTRATION_CLOSED"))
+    eventResult
+      .andExpect(jsonPath("$.registrationOpen").value(false))
+      .andExpect(jsonPath("$.availableSeats").value(1))
+  }
+
+  @Test
+  fun `should accept registration one second before event start`() {
+    val lastSecondMvc = createMvc(fixedClock("2026-11-14T14:59:59Z"))
+
+    val registrationResult =
+      lastSecondMvc.perform(registrationRequest("Anna", "anna@example.com"))
+
+    registrationResult
+      .andExpect(status().isCreated())
+  }
+
+  private fun createMvc(
+    clock: Clock = fixedClock("2026-11-01T09:00:00Z"),
+  ): MockMvc {
     val eventRepository = EventRepository(jdbcClient)
     val registrationRepository = RegistrationRepository(jdbcClient)
 
     return MockMvcBuilders
       .standaloneSetup(
-        EventController(EventService(eventRepository)),
+        EventController(EventService(eventRepository, clock)),
         RegistrationController(
           RegistrationService(
             eventRepository,
             registrationRepository,
             transactionTemplate,
+            clock,
           ),
         ),
       ).setControllerAdvice(ApiExceptionHandler())
       .build()
   }
+
+  private fun fixedClock(instant: String): Clock =
+    Clock.fixed(Instant.parse(instant), ZoneOffset.UTC)
 
   private fun registrationRequest(
     name: String,
