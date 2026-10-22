@@ -17,7 +17,6 @@ class EventService(
 ) {
   private val secureRandom = SecureRandom()
 
-  @Synchronized
   fun register(request: RegistrationRequest): RegistrationCreatedResponse {
     val name = request.name.trim()
     val email = request.email.trim()
@@ -86,7 +85,6 @@ class EventService(
     }
   }
 
-  @Synchronized
   fun getEvent(): EventResponse {
     val event = findEvent()
 
@@ -102,7 +100,6 @@ class EventService(
     )
   }
 
-  @Synchronized
   fun getRegistration(
     id: String,
     token: String?,
@@ -127,7 +124,6 @@ class EventService(
     return stored.registration
   }
 
-  @Synchronized
   fun cancelRegistration(
     id: String,
     token: String?,
