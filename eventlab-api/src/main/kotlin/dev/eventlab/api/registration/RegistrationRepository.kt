@@ -9,7 +9,7 @@ data class RegistrationRow(
   val eventId: String,
   val name: String,
   val email: String,
-  val accessToken: String,
+  val accessTokenHash: ByteArray,
 )
 
 @Repository
@@ -51,7 +51,7 @@ class RegistrationRepository(
     jdbcClient
       .sql(
         """
-        SELECT id, event_id, name, email, access_token
+        SELECT id, event_id, name, email, access_token_hash
         FROM registrations
         WHERE id = :id
         """.trimIndent(),
@@ -62,7 +62,7 @@ class RegistrationRepository(
           eventId = rs.getString("event_id"),
           name = rs.getString("name"),
           email = rs.getString("email"),
-          accessToken = rs.getString("access_token"),
+          accessTokenHash = rs.getBytes("access_token_hash"),
         )
       }.list()
       .firstOrNull()
@@ -71,14 +71,14 @@ class RegistrationRepository(
     jdbcClient
       .sql(
         """
-        INSERT INTO registrations (id, event_id, name, email, access_token)
-        VALUES (:id, :eventId, :name, :email, :accessToken)
+        INSERT INTO registrations (id, event_id, name, email, access_token_hash)
+        VALUES (:id, :eventId, :name, :email, :accessTokenHash)
         """.trimIndent(),
       ).param("id", registration.id)
       .param("eventId", registration.eventId)
       .param("name", registration.name)
       .param("email", registration.email)
-      .param("accessToken", registration.accessToken)
+      .param("accessTokenHash", registration.accessTokenHash)
       .update()
   }
 

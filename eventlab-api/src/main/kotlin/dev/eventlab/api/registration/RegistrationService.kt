@@ -55,20 +55,21 @@ class RegistrationService(
         )
       }
 
+      val accessToken = generateAccessToken()
       val registration =
         RegistrationRow(
           id = UUID.randomUUID(),
           eventId = EVENT_ID,
           name = name,
           email = email,
-          accessToken = generateAccessToken(),
+          accessTokenHash = hashAccessToken(accessToken),
         )
 
       registrationRepository.insert(registration)
 
       RegistrationCreatedResponse(
         registration = registration.toResponse(),
-        accessToken = registration.accessToken,
+        accessToken = accessToken,
       )
     }
   }
@@ -102,8 +103,8 @@ class RegistrationService(
 
     val matches =
       MessageDigest.isEqual(
-        registration.accessToken.toByteArray(Charsets.UTF_8),
-        token.toByteArray(Charsets.UTF_8),
+        registration.accessTokenHash,
+        hashAccessToken(token),
       )
 
     if (!matches) {
@@ -122,6 +123,11 @@ class RegistrationService(
       .withoutPadding()
       .encodeToString(bytes)
   }
+
+  private fun hashAccessToken(token: String): ByteArray =
+    MessageDigest
+      .getInstance("SHA-256")
+      .digest(token.toByteArray(Charsets.UTF_8))
 
   private fun parseUuid(value: String): UUID? =
     try {

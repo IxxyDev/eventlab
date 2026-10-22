@@ -24,11 +24,13 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.transaction.support.TransactionTemplate
+import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import javax.sql.DataSource
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 @SpringBootTest
 @Import(TestContainersConfiguration::class)
@@ -466,6 +468,27 @@ class EventApiTests {
     result
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.id").value(id))
+  }
+
+  @Test
+  fun `should not store access token in database`() {
+    val responseBody =
+      mvc
+        .perform(registrationRequest("Anna", "anna@example.com"))
+        .andReturn()
+        .response
+        .contentAsString
+    val id = JsonPath.read<String>(responseBody, "$.registration.id")
+    val accessToken = JsonPath.read<String>(responseBody, "$.accessToken")
+
+    val storedRow =
+      jdbcClient
+        .sql("SELECT r::text FROM registrations r WHERE id = :id")
+        .param("id", UUID.fromString(id))
+        .query(String::class.java)
+        .single()
+
+    assertFalse(storedRow.contains(accessToken))
   }
 
   private fun createMvc(): MockMvc {
