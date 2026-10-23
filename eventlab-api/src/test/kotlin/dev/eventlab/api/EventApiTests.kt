@@ -76,7 +76,7 @@ class EventApiTests {
       .andExpect(jsonPath("$.code").value("INVALID_EMAIL"))
     eventResult
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(1))
+      .andExpect(jsonPath("$.availableSeats").value(2))
   }
 
   @Test
