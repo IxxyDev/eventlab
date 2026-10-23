@@ -24,3 +24,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - run: make test
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: eventlab
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: eventlab/package.json
+          cache: npm
+          cache-dependency-path: eventlab/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run check
+
+      - run: npm run lint
