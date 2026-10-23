@@ -1,4 +1,4 @@
-.PHONY: db db-stop psql api test format web sql check-version release
+.PHONY: db db-stop psql api test format web sql check-version release tag
 
 db:
 	docker compose up -d --wait
@@ -32,8 +32,19 @@ check-version:
 
 release:
 	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=0.1.0" && exit 1)
+	git fetch origin
+	git switch -c release/$(VERSION) origin/main
 	cd eventlab && npm version $(VERSION) --no-git-tag-version
 	sed -i.bak 's/^version=.*/version=$(VERSION)/' eventlab-api/gradle.properties
 	rm eventlab-api/gradle.properties.bak
 	git commit -m "Release $(VERSION)" eventlab/package.json eventlab/package-lock.json eventlab-api/gradle.properties
+	git push -u origin release/$(VERSION)
+	gh pr create --base main --title "Release $(VERSION)" --body "After merging run: make tag VERSION=$(VERSION)"
+
+tag:
+	@test -n "$(VERSION)" || (echo "Usage: make tag VERSION=0.1.0" && exit 1)
+	git switch main
+	git pull --ff-only origin main
+	$(MAKE) check-version VERSION=$(VERSION)
 	git tag -a v$(VERSION) -m "EventLab $(VERSION)"
+	git push origin v$(VERSION)
