@@ -1,4 +1,4 @@
-.PHONY: db db-stop psql api test format web sql check-version release tag
+.PHONY: db db-stop psql api migrate test format web sql check-version release tag
 
 db:
 	docker compose up -d --wait
@@ -11,6 +11,9 @@ psql:
 
 api:
 	cd eventlab-api && ./gradlew bootRun
+
+migrate:
+	cd eventlab-api && ./gradlew bootRun --args='--spring.main.web-application-type=none'
 
 test:
 	cd eventlab-api && ./gradlew test --rerun check
