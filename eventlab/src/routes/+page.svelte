@@ -26,11 +26,16 @@ type RestoreState =
   | { status: "loading" }
   | { status: "ready" }
   | { status: "error"; message: string };
+type RegistrationAttempt = {
+  request: RegistrationRequest;
+  idempotencyKey: string;
+};
 
 let registration = $state<Registration | null>(null);
 let registrationAccess = $state<RegistrationAccess | null>(null);
 let submitting = $state(false);
 let registrationError = $state("");
+let pendingAttempt: RegistrationAttempt | null = null;
 
 let cancelling = $state(false);
 let cancelError = $state("");
@@ -74,6 +79,21 @@ async function loadEvent() {
   }
 }
 
+function currentAttempt(request: RegistrationRequest): RegistrationAttempt {
+  if (
+    pendingAttempt === null ||
+    pendingAttempt.request.name !== request.name ||
+    pendingAttempt.request.email !== request.email
+  ) {
+    pendingAttempt = {
+      request,
+      idempotencyKey: crypto.randomUUID(),
+    };
+  }
+
+  return pendingAttempt;
+}
+
 async function register(request: RegistrationRequest) {
   if (!event || submitting || registration) {
     return;
@@ -87,15 +107,20 @@ async function register(request: RegistrationRequest) {
     return;
   }
 
+  const attempt = currentAttempt({
+    name: normalizedName,
+    email: normalizedEmail,
+  });
+
   submitting = true;
   registrationError = "";
   cancelNotice = "";
 
   try {
-    const result = await createRegistration({
-      name: normalizedName,
-      email: normalizedEmail,
-    });
+    const result = await createRegistration(
+      attempt.request,
+      attempt.idempotencyKey,
+    );
     const access: RegistrationAccess = {
       id: result.registration.id,
       accessToken: result.accessToken,
@@ -103,6 +128,7 @@ async function register(request: RegistrationRequest) {
 
     registration = result.registration;
     registrationAccess = access;
+    pendingAttempt = null;
     storageWarning = "";
 
     try {
@@ -164,7 +190,8 @@ async function register(request: RegistrationRequest) {
 
     console.error("Ошибка регистрации:", error);
     registrationError =
-      "Не удалось получить подтверждение от сервера. Статус заявки неизвестен.";
+      "Не удалось получить подтверждение от сервера. " +
+      "Нажмите «Записаться» ещё раз — вторая заявка не создастся.";
   } finally {
     submitting = false;
   }

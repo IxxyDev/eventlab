@@ -28,11 +28,13 @@ export async function getEvent(): Promise<EventDetails> {
 
 export async function createRegistration(
   request: RegistrationRequest,
+  idempotencyKey: string,
 ): Promise<RegistrationCreatedResponse> {
   const response = await fetch(`${apiBaseUrl}/api/event/registrations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify(request),
   });

@@ -189,8 +189,7 @@ class EventApiTests {
   @Test
   fun `should give the last seat to only one of many simultaneous participants`() {
     val participantCount = 10
-    val connections = (1..participantCount).map { dataSource.connection }
-    connections.forEach { it.close() }
+    warmUpConnectionPool(participantCount)
     val startLine = CyclicBarrier(participantCount)
     val requests =
       (1..participantCount).map { number ->
@@ -533,6 +532,154 @@ class EventApiTests {
       .andExpect(status().isCreated())
   }
 
+  @Test
+  fun `should return the same registration when retried with the same idempotency key`() {
+    val idempotencyKey = UUID.randomUUID().toString()
+    val firstBody =
+      mvc
+        .perform(
+          registrationRequest("Anna", "anna@example.com", idempotencyKey),
+        ).andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
+    val firstId = JsonPath.read<String>(firstBody, "$.registration.id")
+
+    val retryResult =
+      mvc.perform(
+        registrationRequest("Anna", "anna@example.com", idempotencyKey),
+      )
+    val eventResult = mvc.perform(get("/api/event"))
+
+    retryResult
+      .andExpect(status().isCreated())
+      .andExpect(jsonPath("$.registration.id").value(firstId))
+      .andExpect(jsonPath("$.accessToken").isNotEmpty())
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.availableSeats").value(0))
+  }
+
+  @Test
+  fun `should replace access token when registration is retried`() {
+    val idempotencyKey = UUID.randomUUID().toString()
+    val firstBody =
+      mvc
+        .perform(
+          registrationRequest("Anna", "anna@example.com", idempotencyKey),
+        ).andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
+    val retryBody =
+      mvc
+        .perform(
+          registrationRequest("Anna", "anna@example.com", idempotencyKey),
+        ).andExpect(status().isCreated())
+        .andReturn()
+        .response
+        .contentAsString
+    val id = JsonPath.read<String>(retryBody, "$.registration.id")
+    val firstToken = JsonPath.read<String>(firstBody, "$.accessToken")
+    val retryToken = JsonPath.read<String>(retryBody, "$.accessToken")
+
+    val firstTokenResult =
+      mvc.perform(
+        get("/api/registrations/{id}", id)
+          .header("Authorization", "Bearer $firstToken"),
+      )
+    val retryTokenResult =
+      mvc.perform(
+        get("/api/registrations/{id}", id)
+          .header("Authorization", "Bearer $retryToken"),
+      )
+
+    firstTokenResult
+      .andExpect(status().isNotFound())
+    retryTokenResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.id").value(id))
+  }
+
+  @Test
+  fun `should reject idempotency key reused with different data`() {
+    val idempotencyKey = UUID.randomUUID().toString()
+    mvc
+      .perform(registrationRequest("Anna", "anna@example.com", idempotencyKey))
+      .andExpect(status().isCreated())
+
+    val reuseResult =
+      mvc.perform(
+        registrationRequest("Boris", "boris@example.com", idempotencyKey),
+      )
+    val eventResult = mvc.perform(get("/api/event"))
+
+    reuseResult
+      .andExpect(status().isUnprocessableContent())
+      .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"))
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.availableSeats").value(0))
+  }
+
+  @Test
+  fun `should return 400 with malformed idempotency key without occupying the seat`() {
+    val registrationResult =
+      mvc.perform(
+        registrationRequest("Anna", "anna@example.com", "not-a-uuid"),
+      )
+    val eventResult = mvc.perform(get("/api/event"))
+
+    registrationResult
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.code").value("INVALID_IDEMPOTENCY_KEY"))
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.availableSeats").value(1))
+  }
+
+  @Test
+  fun `should create one registration for simultaneous retries with the same idempotency key`() {
+    val attemptCount = 5
+    val idempotencyKey = UUID.randomUUID().toString()
+    warmUpConnectionPool(attemptCount)
+    val startLine = CyclicBarrier(attemptCount)
+    val requests =
+      (1..attemptCount).map {
+        val server = createMvc()
+        Callable {
+          startLine.await()
+          server
+            .perform(
+              registrationRequest("Anna", "anna@example.com", idempotencyKey),
+            ).andReturn()
+            .response
+        }
+      }
+
+    val responses =
+      Executors.newFixedThreadPool(attemptCount).use { executor ->
+        executor.invokeAll(requests).map { it.get() }
+      }
+    val eventResult = mvc.perform(get("/api/event"))
+
+    assertEquals(List(attemptCount) { 201 }, responses.map { it.status })
+    assertEquals(
+      1,
+      responses
+        .map {
+          JsonPath.read<String>(
+            it.contentAsString,
+            "$.registration.id",
+          )
+        }.distinct()
+        .size,
+    )
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.availableSeats").value(0))
+  }
+
   private fun createMvc(
     clock: Clock = fixedClock("2026-11-01T09:00:00Z"),
   ): MockMvc {
@@ -560,8 +707,22 @@ class EventApiTests {
   private fun registrationRequest(
     name: String,
     email: String,
-  ): MockHttpServletRequestBuilder =
-    post("/api/event/registrations")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content("""{"name": "$name", "email": "$email"}""")
+    idempotencyKey: String? = null,
+  ): MockHttpServletRequestBuilder {
+    val request =
+      post("/api/event/registrations")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("""{"name": "$name", "email": "$email"}""")
+
+    if (idempotencyKey != null) {
+      request.header("Idempotency-Key", idempotencyKey)
+    }
+
+    return request
+  }
+
+  private fun warmUpConnectionPool(size: Int) {
+    val connections = (1..size).map { dataSource.connection }
+    connections.forEach { it.close() }
+  }
 }

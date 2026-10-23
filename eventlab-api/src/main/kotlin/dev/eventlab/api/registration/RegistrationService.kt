@@ -2,6 +2,7 @@ package dev.eventlab.api.registration
 
 import dev.eventlab.api.event.EVENT_ID
 import dev.eventlab.api.event.EventRepository
+import dev.eventlab.api.event.RegistrationLimits
 import dev.eventlab.api.event.isRegistrationOpen
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
@@ -20,7 +21,10 @@ class RegistrationService(
 ) {
   private val secureRandom = SecureRandom()
 
-  fun register(request: RegistrationRequest): RegistrationCreatedResponse {
+  fun register(
+    request: RegistrationRequest,
+    idempotencyKey: String?,
+  ): RegistrationCreatedResponse {
     val name = request.name.trim()
     val email = request.email.trim()
     val emailPattern = Regex("""^[^\s@]+@[^\s@]+\.[^\s@]+$""")
@@ -43,43 +47,26 @@ class RegistrationService(
       )
     }
 
+    if (idempotencyKey != null && parseUuid(idempotencyKey) == null) {
+      throw RegistrationValidationException(
+        RegistrationErrorCode.INVALID_IDEMPOTENCY_KEY,
+      )
+    }
+
+    val idempotencyKeyHash = idempotencyKey?.let { sha256(it) }
+
     return transactionTemplate.execute {
       val limits = eventRepository.lockRegistrationLimits(EVENT_ID)
+      val previous =
+        idempotencyKeyHash?.let {
+          registrationRepository.findByIdempotencyKeyHash(it)
+        }
 
-      if (!isRegistrationOpen(limits.startsAt, clock.instant())) {
-        throw RegistrationConflictException(
-          RegistrationErrorCode.REGISTRATION_CLOSED,
-        )
+      if (previous != null) {
+        retryRegistration(previous, name, email)
+      } else {
+        createRegistration(limits, name, email, idempotencyKeyHash)
       }
-
-      if (registrationRepository.existsByEventAndEmail(EVENT_ID, email)) {
-        throw RegistrationConflictException(
-          RegistrationErrorCode.EMAIL_ALREADY_REGISTERED,
-        )
-      }
-
-      if (registrationRepository.countByEvent(EVENT_ID) >= limits.capacity) {
-        throw RegistrationConflictException(
-          RegistrationErrorCode.EVENT_FULL,
-        )
-      }
-
-      val accessToken = generateAccessToken()
-      val registration =
-        RegistrationRow(
-          id = UUID.randomUUID(),
-          eventId = EVENT_ID,
-          name = name,
-          email = email,
-          accessTokenHash = hashAccessToken(accessToken),
-        )
-
-      registrationRepository.insert(registration)
-
-      RegistrationCreatedResponse(
-        registration = registration.toResponse(),
-        accessToken = accessToken,
-      )
     }
   }
 
@@ -99,6 +86,71 @@ class RegistrationService(
     return registrationRepository.deleteById(registration.id)
   }
 
+  private fun retryRegistration(
+    previous: RegistrationRow,
+    name: String,
+    email: String,
+  ): RegistrationCreatedResponse {
+    if (previous.name != name || previous.email != email) {
+      throw IdempotencyKeyReusedException()
+    }
+
+    val accessToken = generateAccessToken()
+
+    registrationRepository.replaceAccessTokenHash(
+      previous.id,
+      sha256(accessToken),
+    )
+
+    return RegistrationCreatedResponse(
+      registration = previous.toResponse(),
+      accessToken = accessToken,
+    )
+  }
+
+  private fun createRegistration(
+    limits: RegistrationLimits,
+    name: String,
+    email: String,
+    idempotencyKeyHash: ByteArray?,
+  ): RegistrationCreatedResponse {
+    if (!isRegistrationOpen(limits.startsAt, clock.instant())) {
+      throw RegistrationConflictException(
+        RegistrationErrorCode.REGISTRATION_CLOSED,
+      )
+    }
+
+    if (registrationRepository.existsByEventAndEmail(EVENT_ID, email)) {
+      throw RegistrationConflictException(
+        RegistrationErrorCode.EMAIL_ALREADY_REGISTERED,
+      )
+    }
+
+    if (registrationRepository.countByEvent(EVENT_ID) >= limits.capacity) {
+      throw RegistrationConflictException(
+        RegistrationErrorCode.EVENT_FULL,
+      )
+    }
+
+    val accessToken = generateAccessToken()
+    val registration =
+      RegistrationRow(
+        id = UUID.randomUUID(),
+        eventId = EVENT_ID,
+        name = name,
+        email = email,
+        accessTokenHash = sha256(accessToken),
+        idempotencyKeyHash = idempotencyKeyHash,
+      )
+
+    registrationRepository.insert(registration)
+
+    return RegistrationCreatedResponse(
+      registration = registration.toResponse(),
+      accessToken = accessToken,
+    )
+  }
+
   private fun findAccessibleRegistration(
     id: String,
     token: String?,
@@ -113,7 +165,7 @@ class RegistrationService(
     val matches =
       MessageDigest.isEqual(
         registration.accessTokenHash,
-        hashAccessToken(token),
+        sha256(token),
       )
 
     if (!matches) {
@@ -133,10 +185,10 @@ class RegistrationService(
       .encodeToString(bytes)
   }
 
-  private fun hashAccessToken(token: String): ByteArray =
+  private fun sha256(value: String): ByteArray =
     MessageDigest
       .getInstance("SHA-256")
-      .digest(token.toByteArray(Charsets.UTF_8))
+      .digest(value.toByteArray(Charsets.UTF_8))
 
   private fun parseUuid(value: String): UUID? =
     try {

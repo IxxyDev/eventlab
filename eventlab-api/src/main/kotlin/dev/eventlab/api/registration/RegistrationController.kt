@@ -21,7 +21,12 @@ class RegistrationController(
   @ResponseStatus(HttpStatus.CREATED)
   fun register(
     @RequestBody request: RegistrationRequest,
-  ): RegistrationCreatedResponse = registrationService.register(request)
+    @RequestHeader(
+      value = "Idempotency-Key",
+      required = false,
+    ) idempotencyKey: String?,
+  ): RegistrationCreatedResponse =
+    registrationService.register(request, idempotencyKey)
 
   @GetMapping("/api/registrations/{id}")
   fun getRegistration(
