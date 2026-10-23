@@ -1,4 +1,4 @@
-.PHONY: db db-stop psql api test format web
+.PHONY: db db-stop psql api test format web sql
 
 db:
 	docker compose up -d --wait
@@ -20,3 +20,6 @@ format:
 
 web:
 	cd eventlab && npm run dev
+
+sql:
+	cd eventlab-api && postgres-language-server check src/main/resources/sql

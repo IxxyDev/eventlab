@@ -1,5 +1,6 @@
 package dev.eventlab.api.registration
 
+import dev.eventlab.api.loadSql
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet
@@ -18,15 +19,21 @@ data class RegistrationRow(
 class RegistrationRepository(
   private val jdbcClient: JdbcClient,
 ) {
+  private val countByEventSql = loadSql("registration/count_by_event.sql")
+  private val existsByEventAndEmailSql =
+    loadSql("registration/exists_by_event_and_email.sql")
+  private val findByIdSql = loadSql("registration/find_by_id.sql")
+  private val findByIdempotencyKeyHashSql =
+    loadSql("registration/find_by_idempotency_key_hash.sql")
+  private val insertSql = loadSql("registration/insert.sql")
+  private val replaceAccessTokenHashSql =
+    loadSql("registration/replace_access_token_hash.sql")
+  private val deleteByIdSql = loadSql("registration/delete_by_id.sql")
+
   fun countByEvent(eventId: String): Int =
     jdbcClient
-      .sql(
-        """
-        SELECT COUNT(*)
-        FROM registrations
-        WHERE event_id = :eventId
-        """.trimIndent(),
-      ).param("eventId", eventId)
+      .sql(countByEventSql)
+      .param("eventId", eventId)
       .query(Int::class.java)
       .single()
 
@@ -35,29 +42,16 @@ class RegistrationRepository(
     email: String,
   ): Boolean =
     jdbcClient
-      .sql(
-        """
-        SELECT EXISTS (
-          SELECT 1
-          FROM registrations
-          WHERE event_id = :eventId
-            AND LOWER(email) = LOWER(:email)
-        )
-        """.trimIndent(),
-      ).param("eventId", eventId)
+      .sql(existsByEventAndEmailSql)
+      .param("eventId", eventId)
       .param("email", email)
       .query(Boolean::class.java)
       .single()
 
   fun findById(id: UUID): RegistrationRow? =
     jdbcClient
-      .sql(
-        """
-        SELECT id, event_id, name, email, access_token_hash, idempotency_key_hash
-        FROM registrations
-        WHERE id = :id
-        """.trimIndent(),
-      ).param("id", id)
+      .sql(findByIdSql)
+      .param("id", id)
       .query { rs, _ -> rs.toRegistrationRow() }
       .list()
       .firstOrNull()
@@ -66,29 +60,16 @@ class RegistrationRepository(
     idempotencyKeyHash: ByteArray,
   ): RegistrationRow? =
     jdbcClient
-      .sql(
-        """
-        SELECT id, event_id, name, email, access_token_hash, idempotency_key_hash
-        FROM registrations
-        WHERE idempotency_key_hash = :idempotencyKeyHash
-        """.trimIndent(),
-      ).param("idempotencyKeyHash", idempotencyKeyHash)
+      .sql(findByIdempotencyKeyHashSql)
+      .param("idempotencyKeyHash", idempotencyKeyHash)
       .query { rs, _ -> rs.toRegistrationRow() }
       .list()
       .firstOrNull()
 
   fun insert(registration: RegistrationRow) {
     jdbcClient
-      .sql(
-        """
-        INSERT INTO registrations (
-          id, event_id, name, email, access_token_hash, idempotency_key_hash
-        )
-        VALUES (
-          :id, :eventId, :name, :email, :accessTokenHash, :idempotencyKeyHash
-        )
-        """.trimIndent(),
-      ).param("id", registration.id)
+      .sql(insertSql)
+      .param("id", registration.id)
       .param("eventId", registration.eventId)
       .param("name", registration.name)
       .param("email", registration.email)
@@ -102,20 +83,15 @@ class RegistrationRepository(
     accessTokenHash: ByteArray,
   ) {
     jdbcClient
-      .sql(
-        """
-        UPDATE registrations
-        SET access_token_hash = :accessTokenHash
-        WHERE id = :id
-        """.trimIndent(),
-      ).param("id", id)
+      .sql(replaceAccessTokenHashSql)
+      .param("id", id)
       .param("accessTokenHash", accessTokenHash)
       .update()
   }
 
   fun deleteById(id: UUID): Boolean =
     jdbcClient
-      .sql("DELETE FROM registrations WHERE id = :id")
+      .sql(deleteByIdSql)
       .param("id", id)
       .update() > 0
 

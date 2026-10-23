@@ -1,5 +1,6 @@
 package dev.eventlab.api.event
 
+import dev.eventlab.api.loadSql
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet
@@ -28,28 +29,14 @@ data class RegistrationLimits(
 class EventRepository(
   private val jdbcClient: JdbcClient,
 ) {
+  private val findByIdSql = loadSql("event/find_by_id.sql")
+  private val lockRegistrationLimitsSql =
+    loadSql("event/lock_registration_limits.sql")
+
   fun findById(id: String): EventRow =
     jdbcClient
-      .sql(
-        """
-        SELECT
-          id,
-          title,
-          description,
-          starts_at,
-          ends_at,
-          time_zone,
-          venue,
-          capacity,
-          (
-            SELECT COUNT(*)
-            FROM registrations
-            WHERE registrations.event_id = events.id
-          ) AS registration_count
-        FROM events
-        WHERE id = :id
-        """.trimIndent(),
-      ).param("id", id)
+      .sql(findByIdSql)
+      .param("id", id)
       .query { rs, _ ->
         EventRow(
           id = rs.getString("id"),
@@ -66,14 +53,8 @@ class EventRepository(
 
   fun lockRegistrationLimits(id: String): RegistrationLimits =
     jdbcClient
-      .sql(
-        """
-        SELECT capacity, starts_at
-        FROM events
-        WHERE id = :id
-        FOR UPDATE
-        """.trimIndent(),
-      ).param("id", id)
+      .sql(lockRegistrationLimitsSql)
+      .param("id", id)
       .query { rs, _ ->
         RegistrationLimits(
           capacity = rs.getInt("capacity"),
