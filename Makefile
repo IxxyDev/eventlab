@@ -1,4 +1,4 @@
-.PHONY: db db-stop psql api migrate test format web sql check-version release tag
+.PHONY: db db-stop psql api migrate test format web web-test e2e-db web-e2e sql check-version release tag
 
 db:
 	docker compose up -d --wait
@@ -23,6 +23,18 @@ format:
 
 web:
 	cd eventlab && npm run dev
+
+web-test:
+	cd eventlab && npm test
+
+e2e-db:
+	@psql postgresql://eventlab:eventlab@127.0.0.1:5433/postgres -tAc \
+		"SELECT 1 FROM pg_database WHERE datname = 'eventlab_e2e'" | grep -q 1 \
+		|| psql postgresql://eventlab:eventlab@127.0.0.1:5433/postgres \
+		-c "CREATE DATABASE eventlab_e2e"
+
+web-e2e: e2e-db
+	cd eventlab && npm run test:e2e
 
 sql:
 	cd eventlab-api && postgres-language-server check src/main/resources/sql

@@ -28,7 +28,7 @@ let { registration, cancelling, cancelError, onCancel }: Props = $props();
   disabled={cancelling}
   onclick={onCancel}
 >
-  {cancelling ? "Отменяем регистрацию..." : "Отменить регистрацию"}
+  {cancelling ? "Отменяем регистрацию…" : "Отменить регистрацию"}
 </button>
 
 <style>
