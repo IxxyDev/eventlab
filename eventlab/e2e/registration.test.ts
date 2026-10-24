@@ -33,14 +33,13 @@ test.afterEach(async ({ page, request }) => {
     return;
   }
 
-  const access: { id: string; accessToken: string } =JSON.parse(saved);
-  await request.delete(
-    `http://localhost:8080/api/registrations/${access.id}`,
-    { headers: { Authorization: `Bearer ${access.accessToken}` } },
-  );
+  const access: { id: string; accessToken: string } = JSON.parse(saved);
+  await request.delete(`http://localhost:8080/api/registrations/${access.id}`, {
+    headers: { Authorization: `Bearer ${access.accessToken}` },
+  });
 });
 
-test("should restore the registration after reload", async ({ page })=> {
+test("should restore the registration after reload", async ({ page }) => {
   const email = await register(page);
 
   await page.reload();
