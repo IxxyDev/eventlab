@@ -20,6 +20,7 @@ export default defineConfig({
   ],
   test: {
     expect: { requireAssertions: true },
+    unstubGlobals: true,
     projects: [
       {
         extends: true,

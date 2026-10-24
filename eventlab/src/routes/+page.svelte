@@ -272,7 +272,7 @@ async function restoreRegistration() {
 
 <main>
   {#if eventLoading}
-    <p class="notice" role="status">Загружаем мероприятие...</p>
+    <p class="notice" role="status">Загружаем мероприятие…</p>
   {:else if eventError && !event}
     <p class="notice notice--error" role="alert">{eventError}</p>
     <button class="button button--secondary" type="button" onclick={loadEvent}>
@@ -304,7 +304,7 @@ async function restoreRegistration() {
     </section>
 
     {#if eventRefreshing}
-      <p class="notice" role="status">Обновляем количество мест...</p>
+      <p class="notice" role="status">Обновляем количество мест…</p>
     {:else if eventError}
       <p class="notice notice--warning" role="alert">{eventError}</p>
       <button
@@ -328,7 +328,7 @@ async function restoreRegistration() {
     {/if}
 
     {#if restoreState.status === "loading"}
-      <p class="notice" role="status">Проверяем вашу регистрацию...</p>
+      <p class="notice" role="status">Проверяем вашу регистрацию…</p>
     {:else if restoreState.status === "error"}
       <p class="notice notice--error" role="alert">{restoreState.message}</p>
 
