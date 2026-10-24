@@ -96,3 +96,5 @@ jobs:
       - run: npm run check
 
       - run: npm run lint
+
+      - run: npm test

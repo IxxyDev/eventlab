@@ -21,15 +21,15 @@ import {
   readRegistrationAccess,
   saveRegistrationAccess,
 } from "#lib/registration-access.ts";
+import {
+  type RegistrationAttempt,
+  reuseOrStartAttempt,
+} from "#lib/registration-attempt.ts";
 
 type RestoreState =
   | { status: "loading" }
   | { status: "ready" }
   | { status: "error"; message: string };
-type RegistrationAttempt = {
-  request: RegistrationRequest;
-  idempotencyKey: string;
-};
 
 let registration = $state<Registration | null>(null);
 let registrationAccess = $state<RegistrationAccess | null>(null);
@@ -79,21 +79,6 @@ async function loadEvent() {
   }
 }
 
-function currentAttempt(request: RegistrationRequest): RegistrationAttempt {
-  if (
-    pendingAttempt === null ||
-    pendingAttempt.request.name !== request.name ||
-    pendingAttempt.request.email !== request.email
-  ) {
-    pendingAttempt = {
-      request,
-      idempotencyKey: crypto.randomUUID(),
-    };
-  }
-
-  return pendingAttempt;
-}
-
 async function register(request: RegistrationRequest) {
   if (!event || submitting || registration) {
     return;
@@ -107,10 +92,11 @@ async function register(request: RegistrationRequest) {
     return;
   }
 
-  const attempt = currentAttempt({
+  const attempt = reuseOrStartAttempt(pendingAttempt, {
     name: normalizedName,
     email: normalizedEmail,
   });
+  pendingAttempt = attempt;
 
   submitting = true;
   registrationError = "";
