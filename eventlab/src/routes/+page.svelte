@@ -20,6 +20,11 @@ import {
   type RegistrationAttempt,
   reuseOrStartAttempt,
 } from "#lib/features/registration/registration-attempt.ts";
+import {
+  describeRegistrationError,
+  isRegistrationRejection,
+  registrationErrorMessages,
+} from "#lib/features/registration/registration-errors.ts";
 import type {
   Registration,
   RegistrationRequest,
@@ -88,7 +93,7 @@ async function register(request: RegistrationRequest) {
   const normalizedEmail = request.email.trim();
 
   if (!normalizedEmail || !normalizedName) {
-    registrationError = "Укажите имя и email";
+    registrationError = registrationErrorMessages.REQUIRED_FIELDS;
     return;
   }
 
@@ -127,57 +132,22 @@ async function register(request: RegistrationRequest) {
 
     await loadEvent();
   } catch (error) {
-    if (error instanceof HttpError && error.status === 409) {
-      switch (error.code) {
-        case "EMAIL_ALREADY_REGISTERED":
-          registrationError = "Этот email уже зарегистрирован на мероприятие.";
-          break;
+    registrationError = describeRegistrationError(error);
 
-        case "REGISTRATION_CLOSED":
-          event = { ...event, registrationOpen: false };
-          registrationError = "Регистрация закрыта: мероприятие уже началось.";
-          break;
+    if (!isRegistrationRejection(error)) {
+      console.error("Ошибка регистрации:", error);
+      return;
+    }
 
-        case "EVENT_FULL":
-          event = { ...event, availableSeats: 0 };
-          registrationError = "Свободные места закончились.";
-          break;
-
-        default:
-          registrationError =
-            "Регистрация отклонена. Обновите данные и попробуйте снова.";
+    if (error.status === 409) {
+      if (error.code === "REGISTRATION_CLOSED") {
+        event = { ...event, registrationOpen: false };
+      } else if (error.code === "EVENT_FULL") {
+        event = { ...event, availableSeats: 0 };
       }
 
       await loadEvent();
-      return;
     }
-
-    if (error instanceof HttpError && error.status === 400) {
-      switch (error.code) {
-        case "REQUIRED_FIELDS":
-          registrationError = "Укажите имя и email.";
-          break;
-
-        case "INPUT_TOO_LONG":
-          registrationError =
-            "Имя должно быть не длиннее 100 символов, email – 254";
-          break;
-
-        case "INVALID_EMAIL":
-          registrationError = "Укажите email в формате name@example.com.";
-          break;
-
-        default:
-          registrationError = "Проверьте имя и email.";
-      }
-
-      return;
-    }
-
-    console.error("Ошибка регистрации:", error);
-    registrationError =
-      "Не удалось получить подтверждение от сервера. " +
-      "Нажмите «Записаться» ещё раз — вторая заявка не создастся.";
   } finally {
     submitting = false;
   }

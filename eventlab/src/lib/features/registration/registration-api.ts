@@ -16,8 +16,7 @@ export async function createRegistration(
       "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify(request),
-  });’
-дел
+  });
   await ensureSuccess(response);
 
   return response.json();
