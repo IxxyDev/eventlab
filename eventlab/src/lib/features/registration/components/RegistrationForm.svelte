@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { RegistrationRequest } from "#lib/api/types.ts";
+import type { RegistrationRequest } from "../types.ts";
 
 type Props = {
   submitting: boolean;

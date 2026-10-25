@@ -1,30 +1,30 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import {
-  cancelRegistration,
-  createRegistration,
-  getEvent,
-  getRegistration,
-  HttpError,
-} from "#lib/api/event-api.ts";
-import type {
-  EventDetails,
-  Registration,
-  RegistrationRequest,
-} from "#lib/api/types.ts";
-import RegistrationConfirmation from "#lib/components/RegistrationConfirmation.svelte";
-import RegistrationForm from "#lib/components/RegistrationForm.svelte";
-import { formatEventSchedule } from "#lib/event-schedule.ts";
+import { getEvent } from "#lib/features/event/event-api.ts";
+import { formatEventSchedule } from "#lib/features/event/event-schedule.ts";
+import type { EventDetails } from "#lib/features/event/types.ts";
+import RegistrationConfirmation from "#lib/features/registration/components/RegistrationConfirmation.svelte";
+import RegistrationForm from "#lib/features/registration/components/RegistrationForm.svelte";
 import {
   clearRegistrationAccess,
   type RegistrationAccess,
   readRegistrationAccess,
   saveRegistrationAccess,
-} from "#lib/registration-access.ts";
+} from "#lib/features/registration/registration-access.ts";
+import {
+  cancelRegistration,
+  createRegistration,
+  getRegistration,
+} from "#lib/features/registration/registration-api.ts";
 import {
   type RegistrationAttempt,
   reuseOrStartAttempt,
-} from "#lib/registration-attempt.ts";
+} from "#lib/features/registration/registration-attempt.ts";
+import type {
+  Registration,
+  RegistrationRequest,
+} from "#lib/features/registration/types.ts";
+import { HttpError } from "#lib/shared/api/http.ts";
 
 type RestoreState =
   | { status: "loading" }

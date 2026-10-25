@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatEventSchedule } from "./event-schedule";
+import { formatEventSchedule } from "./event-schedule.ts";
 
 describe("formatEventSchedule", () => {
   it("should show the time in the event time zone", () => {

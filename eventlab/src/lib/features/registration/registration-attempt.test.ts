@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reuseOrStartAttempt } from "./registration-attempt";
+import { reuseOrStartAttempt } from "./registration-attempt.ts";
 
 const request = { name: "Анна", email: "anna@example.com" };
 

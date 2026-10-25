@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
-import type { RegistrationCreatedResponse } from "../src/lib/api/types.ts";
+import type { RegistrationCreatedResponse } from "../src/lib/features/registration/types.ts";
 
 const storageKey = "eventlab:registration-access:sound-workshop";
 

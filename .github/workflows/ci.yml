@@ -97,6 +97,8 @@ jobs:
 
       - run: npm run lint
 
+      - run: npm run lint:deps
+
       - run: npx playwright install --with-deps chromium
 
       - run: npm test

@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Registration } from "#lib/api/types.ts";
+import type { Registration } from "../types.ts";
 
 type Props = {
   registration: Registration;
