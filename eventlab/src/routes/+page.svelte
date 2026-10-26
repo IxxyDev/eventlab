@@ -2,253 +2,46 @@
 import { onMount } from "svelte";
 import { getEvent } from "#lib/features/event/event-api.ts";
 import { formatEventSchedule } from "#lib/features/event/event-schedule.ts";
-import type { EventDetails } from "#lib/features/event/types.ts";
+import { EventState } from "#lib/features/event/event-state.svelte.ts";
 import RegistrationConfirmation from "#lib/features/registration/components/RegistrationConfirmation.svelte";
 import RegistrationForm from "#lib/features/registration/components/RegistrationForm.svelte";
-import {
-  clearRegistrationAccess,
-  type RegistrationAccess,
-  readRegistrationAccess,
-  saveRegistrationAccess,
-} from "#lib/features/registration/registration-access.ts";
-import {
-  cancelRegistration,
-  createRegistration,
-  getRegistration,
-} from "#lib/features/registration/registration-api.ts";
-import {
-  type RegistrationAttempt,
-  reuseOrStartAttempt,
-} from "#lib/features/registration/registration-attempt.ts";
-import {
-  describeRegistrationError,
-  isRegistrationRejection,
-  registrationErrorMessages,
-} from "#lib/features/registration/registration-errors.ts";
-import type {
-  Registration,
-  RegistrationRequest,
-} from "#lib/features/registration/types.ts";
-import { HttpError } from "#lib/shared/api/http.ts";
+import * as registrationAccess from "#lib/features/registration/registration-access.ts";
+import * as registrationApi from "#lib/features/registration/registration-api.ts";
+import { RegistrationState } from "#lib/features/registration/registration-state.svelte.ts";
 
-type RestoreState =
-  | { status: "loading" }
-  | { status: "ready" }
-  | { status: "error"; message: string };
-
-let registration = $state<Registration | null>(null);
-let registrationAccess = $state<RegistrationAccess | null>(null);
-let submitting = $state(false);
-let registrationError = $state("");
-let pendingAttempt: RegistrationAttempt | null = null;
-
-let cancelling = $state(false);
-let cancelError = $state("");
-let cancelNotice = $state("");
-
-let event = $state<EventDetails | null>(null);
-let eventLoading = $state(true);
-let eventRefreshing = $state(false);
-let eventError = $state("");
-
-let restoreState = $state<RestoreState>({ status: "loading" });
-let storageWarning = $state("");
-
-onMount(() => {
-  void loadEvent();
+const eventState = new EventState(getEvent);
+const registrationState = new RegistrationState({
+  api: registrationApi,
+  accessStore: registrationAccess,
+  event: eventState,
 });
 
 onMount(() => {
-  void restoreRegistration();
+  void eventState.load();
+  void registrationState.restore();
 });
-
-async function loadEvent() {
-  if (eventRefreshing) {
-    return;
-  }
-  eventLoading = event === null;
-  eventRefreshing = event !== null;
-  eventError = "";
-
-  try {
-    event = await getEvent();
-  } catch (error) {
-    console.error("Не удалось загрузить мероприятие", error);
-    eventError =
-      event === null
-        ? "Не удалось загрузить мероприятие. Попробуйте позже."
-        : "Не удалось обновить количество мест. Показаны последние полученные данные.";
-  } finally {
-    eventLoading = false;
-    eventRefreshing = false;
-  }
-}
-
-async function register(request: RegistrationRequest) {
-  if (!event || submitting || registration) {
-    return;
-  }
-
-  const normalizedName = request.name.trim();
-  const normalizedEmail = request.email.trim();
-
-  if (!normalizedEmail || !normalizedName) {
-    registrationError = registrationErrorMessages.REQUIRED_FIELDS;
-    return;
-  }
-
-  const attempt = reuseOrStartAttempt(pendingAttempt, {
-    name: normalizedName,
-    email: normalizedEmail,
-  });
-  pendingAttempt = attempt;
-
-  submitting = true;
-  registrationError = "";
-  cancelNotice = "";
-
-  try {
-    const result = await createRegistration(
-      attempt.request,
-      attempt.idempotencyKey,
-    );
-    const access: RegistrationAccess = {
-      id: result.registration.id,
-      accessToken: result.accessToken,
-    };
-
-    registration = result.registration;
-    registrationAccess = access;
-    pendingAttempt = null;
-    storageWarning = "";
-
-    try {
-      saveRegistrationAccess(access);
-    } catch {
-      storageWarning =
-        "Регистрация создана, но браузер не сохранил ключ доступа. " +
-        "После обновления страницы автоматическое восстановление не сработает.";
-    }
-
-    await loadEvent();
-  } catch (error) {
-    registrationError = describeRegistrationError(error);
-
-    if (!isRegistrationRejection(error)) {
-      console.error("Ошибка регистрации:", error);
-      return;
-    }
-
-    if (error.status === 409) {
-      if (error.code === "REGISTRATION_CLOSED") {
-        event = { ...event, registrationOpen: false };
-      } else if (error.code === "EVENT_FULL") {
-        event = { ...event, availableSeats: 0 };
-      }
-
-      await loadEvent();
-    }
-  } finally {
-    submitting = false;
-  }
-}
-
-async function cancel() {
-  if (!registrationAccess || cancelling) {
-    return;
-  }
-
-  const access = registrationAccess;
-  cancelling = true;
-  cancelError = "";
-  let notice = "Регистрация отменена.";
-
-  try {
-    await cancelRegistration(access.id, access.accessToken);
-  } catch (error) {
-    if (!(error instanceof HttpError && error.status === 404)) {
-      console.error("Ошибка отмены регистрации", error);
-      cancelError =
-        "Не удалось получить ответ сервера, поэтому неизвестно, отменена ли заявка. " +
-        "Нажмите «Отменить регистрацию» ещё раз.";
-      return;
-    }
-    notice =
-      "Заявка уже недоступна: возможно, ее отменили раньше. " +
-      "Сохраненный ключ удален.";
-  } finally {
-    cancelling = false;
-  }
-
-  registration = null;
-  registrationAccess = null;
-  storageWarning = "";
-  cancelNotice = notice;
-
-  try {
-    clearRegistrationAccess();
-  } catch {
-    storageWarning =
-      "Регистрация отменена, но браузер не удалил сохранённый ключ. " +
-      "Он больше не действует.";
-  }
-
-  await loadEvent();
-}
-
-async function restoreRegistration() {
-  restoreState = { status: "loading" };
-
-  try {
-    const access = readRegistrationAccess();
-
-    if (access === null) {
-      restoreState = { status: "ready" };
-      return;
-    }
-
-    try {
-      registration = await getRegistration(access.id, access.accessToken);
-      registrationAccess = access;
-    } catch (error) {
-      if (error instanceof HttpError && error.status === 404) {
-        clearRegistrationAccess();
-        registration = null;
-        registrationAccess = null;
-        storageWarning =
-          "Сохранённая заявка недоступна: " +
-          "она отсутствует или ключ больше не подходит.";
-        restoreState = { status: "ready" };
-        return;
-      }
-
-      throw error;
-    }
-
-    restoreState = { status: "ready" };
-  } catch {
-    restoreState = {
-      status: "error",
-      message:
-        "Не удалось восстановить регистрацию. Сохраненный ключ не удален.",
-    };
-  }
-}
 </script>
 
 <svelte:head>
-  <title>{event ? `${event.title} – EventLab` : "EventLab"}</title>
+  <title>
+    {eventState.details ? `${eventState.details.title} – EventLab` : "EventLab"}
+  </title>
 </svelte:head>
 
 <main>
-  {#if eventLoading}
+  {#if eventState.loading}
     <p class="notice" role="status">Загружаем мероприятие…</p>
-  {:else if eventError && !event}
-    <p class="notice notice--error" role="alert">{eventError}</p>
-    <button class="button button--secondary" type="button" onclick={loadEvent}>
+  {:else if eventState.error && !eventState.details}
+    <p class="notice notice--error" role="alert">{eventState.error}</p>
+    <button
+      class="button button--secondary"
+      type="button"
+      onclick={() => eventState.load()}
+    >
       Попробовать снова
     </button>
-  {:else if event}
+  {:else if eventState.details}
+    {@const event = eventState.details}
     <p class="eyebrow">Открытая лекция и мастер-класс</p>
     <h1>{event.title}</h1>
 
@@ -273,14 +66,14 @@ async function restoreRegistration() {
       </div>
     </section>
 
-    {#if eventRefreshing}
+    {#if eventState.refreshing}
       <p class="notice" role="status">Обновляем количество мест…</p>
-    {:else if eventError}
-      <p class="notice notice--warning" role="alert">{eventError}</p>
+    {:else if eventState.error}
+      <p class="notice notice--warning" role="alert">{eventState.error}</p>
       <button
         class="button button--secondary"
         type="button"
-        onclick={loadEvent}
+        onclick={() => eventState.load()}
       >
         Обновить количество мест
       </button>
@@ -289,32 +82,36 @@ async function restoreRegistration() {
       Заявка хранится на сервере. Ключ доступа сохраняется в этом браузере.
     </p>
 
-    {#if cancelNotice}
-      <p class="notice" role="status">{cancelNotice}</p>
+    {#if registrationState.cancelNotice}
+      <p class="notice" role="status">{registrationState.cancelNotice}</p>
     {/if}
 
-    {#if storageWarning}
-      <p class="notice notice--warning" role="status">{storageWarning}</p>
+    {#if registrationState.storageWarning}
+      <p class="notice notice--warning" role="status">
+        {registrationState.storageWarning}
+      </p>
     {/if}
 
-    {#if restoreState.status === "loading"}
+    {#if registrationState.restoreState.status === "loading"}
       <p class="notice" role="status">Проверяем вашу регистрацию…</p>
-    {:else if restoreState.status === "error"}
-      <p class="notice notice--error" role="alert">{restoreState.message}</p>
+    {:else if registrationState.restoreState.status === "error"}
+      <p class="notice notice--error" role="alert">
+        {registrationState.restoreState.message}
+      </p>
 
       <button
         class="button button--secondary"
         type="button"
-        onclick={restoreRegistration}
+        onclick={() => registrationState.restore()}
       >
         Повторить проверку регистрации
       </button>
-    {:else if registration}
+    {:else if registrationState.registration}
       <RegistrationConfirmation
-        {registration}
-        {cancelling}
-        {cancelError}
-        onCancel={cancel}
+        registration={registrationState.registration}
+        cancelling={registrationState.cancelling}
+        cancelError={registrationState.cancelError}
+        onCancel={() => registrationState.cancel()}
       />
     {:else if !event.registrationOpen}
       <p class="notice" role="status">
@@ -326,9 +123,9 @@ async function restoreRegistration() {
       </p>
     {:else}
       <RegistrationForm
-        {submitting}
-        {registrationError}
-        onRegister={register}
+        submitting={registrationState.submitting}
+        registrationError={registrationState.registrationError}
+        onRegister={(request) => registrationState.register(request)}
       />
     {/if}
   {/if}
