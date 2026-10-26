@@ -15,3 +15,17 @@ data class EventResponse(
   val availableSeats: Int,
   val registrationOpen: Boolean,
 )
+
+fun EventOverview.toResponse(): EventResponse =
+  EventResponse(
+    id = event.id,
+    title = event.title,
+    description = event.description,
+    startsAt = event.startsAt,
+    endsAt = event.endsAt,
+    timeZone = event.timeZone,
+    venue = event.venue,
+    capacity = event.capacity,
+    availableSeats = event.availableSeats,
+    registrationOpen = registrationOpen,
+  )
