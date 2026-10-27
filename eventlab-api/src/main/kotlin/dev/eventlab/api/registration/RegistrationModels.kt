@@ -33,5 +33,4 @@ fun RegistrationWithAccessToken.toResponse(): RegistrationCreatedResponse =
     accessToken = accessToken,
   )
 
-fun RegistrationRequest.toParticipant(): Participant =
-  Participant.of(name, email)
+fun RegistrationRequest.toParticipant(): Participant = Participant(name, email)

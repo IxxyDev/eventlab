@@ -7,7 +7,7 @@ import kotlin.test.assertFailsWith
 class ParticipantTest {
   @Test
   fun `should trim spaces around name and email`() {
-    val participant = Participant.of("  Anna ", " anna@example.com  ")
+    val participant = Participant("  Anna ", " anna@example.com  ")
 
     assertEquals("Anna", participant.name)
     assertEquals("anna@example.com", participant.email)
@@ -17,7 +17,7 @@ class ParticipantTest {
   fun `should reject name made only of spaces`() {
     val error =
       assertFailsWith<RegistrationValidationException> {
-        Participant.of("   ", "anna@example.com")
+        Participant("   ", "anna@example.com")
       }
 
     assertEquals(RegistrationErrorCode.REQUIRED_FIELDS, error.code)
@@ -27,7 +27,7 @@ class ParticipantTest {
   fun `should accept name of exactly 100 characters`() {
     val name = "a".repeat(100)
 
-    val participant = Participant.of(name, "anna@example.com")
+    val participant = Participant(name, "anna@example.com")
 
     assertEquals(name, participant.name)
   }
@@ -38,7 +38,7 @@ class ParticipantTest {
 
     val error =
       assertFailsWith<RegistrationValidationException> {
-        Participant.of(name, "anna@example.com")
+        Participant(name, "anna@example.com")
       }
 
     assertEquals(RegistrationErrorCode.INPUT_TOO_LONG, error.code)
@@ -48,7 +48,7 @@ class ParticipantTest {
   fun `should accept email of exactly 254 characters`() {
     val email = "a".repeat(242) + "@example.com"
 
-    val participant = Participant.of("Anna", email)
+    val participant = Participant("Anna", email)
 
     assertEquals(email, participant.email)
   }
@@ -59,7 +59,7 @@ class ParticipantTest {
 
     val error =
       assertFailsWith<RegistrationValidationException> {
-        Participant.of("Anna", email)
+        Participant("Anna", email)
       }
 
     assertEquals(RegistrationErrorCode.INPUT_TOO_LONG, error.code)
@@ -69,7 +69,7 @@ class ParticipantTest {
   fun `should reject email without a dot in the domain`() {
     val error =
       assertFailsWith<RegistrationValidationException> {
-        Participant.of("Anna", "anna@example")
+        Participant("Anna", "anna@example")
       }
 
     assertEquals(RegistrationErrorCode.INVALID_EMAIL, error.code)
