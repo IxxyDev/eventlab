@@ -25,7 +25,29 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "correctness": {
+        "useImportExtensions": "error"
+      },
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": [
+                  "#lib/**",
+                  "!#lib/**/*.ts",
+                  "!#lib/**/*.svelte",
+                  "!#lib/**/*.css",
+                  "!#lib/**/*.svg"
+                ],
+                "message": "Через #lib импортируйте файл с настоящим расширением: .ts, .svelte, .css или .svg."
+              }
+            ]
+          }
+        }
+      }
     }
   },
   "assist": {

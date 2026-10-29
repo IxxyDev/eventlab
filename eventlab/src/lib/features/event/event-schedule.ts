@@ -1,4 +1,4 @@
-import type { EventDetails } from "./api/types";
+import type { EventDetails } from "./types.ts";
 
 type EventSchedule = Pick<EventDetails, "startsAt" | "endsAt" | "timeZone">;
 

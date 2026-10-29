@@ -3,7 +3,7 @@ import {
   clearRegistrationAccess,
   readRegistrationAccess,
   saveRegistrationAccess,
-} from "./registration-access";
+} from "./registration-access.ts";
 
 const storageKey = "eventlab:registration-access:sound-workshop";
 const access = { id: "registration-1", accessToken: "token-1" };

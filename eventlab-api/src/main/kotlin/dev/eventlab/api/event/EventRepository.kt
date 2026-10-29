@@ -8,37 +8,19 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-data class EventRow(
-  val id: String,
-  val title: String,
-  val description: String,
-  val startsAt: Instant,
-  val endsAt: Instant,
-  val timeZone: ZoneId,
-  val venue: String,
-  val capacity: Int,
-  val registrationCount: Int,
-)
-
-data class RegistrationLimits(
-  val capacity: Int,
-  val startsAt: Instant,
-)
-
 @Repository
 class EventRepository(
   private val jdbcClient: JdbcClient,
 ) {
   private val findByIdSql = loadSql("event/find_by_id.sql")
-  private val lockRegistrationLimitsSql =
-    loadSql("event/lock_registration_limits.sql")
+  private val lockByIdSql = loadSql("event/lock_by_id.sql")
 
-  fun findById(id: String): EventRow =
+  fun findById(id: String): Event =
     jdbcClient
       .sql(findByIdSql)
       .param("id", id)
       .query { rs, _ ->
-        EventRow(
+        Event(
           id = rs.getString("id"),
           title = rs.getString("title"),
           description = rs.getString("description"),
@@ -51,16 +33,15 @@ class EventRepository(
         )
       }.single()
 
-  fun lockRegistrationLimits(id: String): RegistrationLimits =
+  fun lockById(id: String): Event {
     jdbcClient
-      .sql(lockRegistrationLimitsSql)
+      .sql(lockByIdSql)
       .param("id", id)
-      .query { rs, _ ->
-        RegistrationLimits(
-          capacity = rs.getInt("capacity"),
-          startsAt = rs.getInstant("starts_at"),
-        )
-      }.single()
+      .query(String::class.java)
+      .single()
+
+    return findById(id)
+  }
 
   private fun ResultSet.getInstant(column: String): Instant =
     getObject(column, OffsetDateTime::class.java).toInstant()

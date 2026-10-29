@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { HttpError } from "#lib/shared/api/http.ts";
 import {
   cancelRegistration,
   createRegistration,
   getRegistration,
-  HttpError,
-} from "./event-api";
+} from "./registration-api.ts";
 
 const request = { name: "Анна", email: "anna@example.com" };
 const created = {

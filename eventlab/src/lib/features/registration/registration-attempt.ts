@@ -1,4 +1,4 @@
-import type { RegistrationRequest } from "./api/types";
+import type { RegistrationRequest } from "./types.ts";
 
 export function reuseOrStartAttempt(
   pending: RegistrationAttempt | null,

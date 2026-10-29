@@ -26,7 +26,11 @@ class RegistrationController(
       required = false,
     ) idempotencyKey: String?,
   ): RegistrationCreatedResponse =
-    registrationService.register(request, idempotencyKey)
+    registrationService
+      .register(
+        request.toParticipant(),
+        idempotencyKey,
+      ).toResponse()
 
   @GetMapping("/api/registrations/{id}")
   fun getRegistration(
@@ -36,7 +40,9 @@ class RegistrationController(
       required = false,
     ) authorization: String?,
   ): RegistrationResponse =
-    registrationService.getRegistration(id, bearerToken(authorization))
+    registrationService
+      .getRegistration(id, bearerToken(authorization))
+      ?.toResponse()
       ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
   @DeleteMapping("/api/registrations/{id}")

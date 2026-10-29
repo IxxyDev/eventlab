@@ -6,20 +6,10 @@ import org.springframework.stereotype.Repository
 import java.sql.ResultSet
 import java.util.UUID
 
-data class RegistrationRow(
-  val id: UUID,
-  val eventId: String,
-  val name: String,
-  val email: String,
-  val accessTokenHash: ByteArray,
-  val idempotencyKeyHash: ByteArray?,
-)
-
 @Repository
 class RegistrationRepository(
   private val jdbcClient: JdbcClient,
 ) {
-  private val countByEventSql = loadSql("registration/count_by_event.sql")
   private val existsByEventAndEmailSql =
     loadSql("registration/exists_by_event_and_email.sql")
   private val findByIdSql = loadSql("registration/find_by_id.sql")
@@ -29,13 +19,6 @@ class RegistrationRepository(
   private val replaceAccessTokenHashSql =
     loadSql("registration/replace_access_token_hash.sql")
   private val deleteByIdSql = loadSql("registration/delete_by_id.sql")
-
-  fun countByEvent(eventId: String): Int =
-    jdbcClient
-      .sql(countByEventSql)
-      .param("eventId", eventId)
-      .query(Int::class.java)
-      .single()
 
   fun existsByEventAndEmail(
     eventId: String,
@@ -48,25 +31,23 @@ class RegistrationRepository(
       .query(Boolean::class.java)
       .single()
 
-  fun findById(id: UUID): RegistrationRow? =
+  fun findById(id: UUID): Registration? =
     jdbcClient
       .sql(findByIdSql)
       .param("id", id)
-      .query { rs, _ -> rs.toRegistrationRow() }
+      .query { rs, _ -> rs.toRegistration() }
       .list()
       .firstOrNull()
 
-  fun findByIdempotencyKeyHash(
-    idempotencyKeyHash: ByteArray,
-  ): RegistrationRow? =
+  fun findByIdempotencyKeyHash(idempotencyKeyHash: ByteArray): Registration? =
     jdbcClient
       .sql(findByIdempotencyKeyHashSql)
       .param("idempotencyKeyHash", idempotencyKeyHash)
-      .query { rs, _ -> rs.toRegistrationRow() }
+      .query { rs, _ -> rs.toRegistration() }
       .list()
       .firstOrNull()
 
-  fun insert(registration: RegistrationRow) {
+  fun insert(registration: Registration) {
     jdbcClient
       .sql(insertSql)
       .param("id", registration.id)
@@ -95,8 +76,8 @@ class RegistrationRepository(
       .param("id", id)
       .update() > 0
 
-  private fun ResultSet.toRegistrationRow(): RegistrationRow =
-    RegistrationRow(
+  private fun ResultSet.toRegistration(): Registration =
+    Registration(
       id = getObject("id", UUID::class.java),
       eventId = getString("event_id"),
       name = getString("name"),

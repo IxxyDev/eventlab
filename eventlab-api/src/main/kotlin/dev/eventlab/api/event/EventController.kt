@@ -10,5 +10,5 @@ class EventController(
   private val eventService: EventService,
 ) {
   @GetMapping("/api/event")
-  fun getEvent(): EventResponse = eventService.getEvent()
+  fun getEvent(): EventResponse = eventService.getEvent().toResponse()
 }

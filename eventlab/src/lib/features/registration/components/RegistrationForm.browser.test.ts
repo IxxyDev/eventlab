@@ -2,7 +2,7 @@ import type { ComponentProps } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-svelte";
-import type { RegistrationRequest } from "#lib/api/types.ts";
+import type { RegistrationRequest } from "../types.ts";
 import RegistrationForm from "./RegistrationForm.svelte";
 
 function renderForm(

@@ -19,3 +19,18 @@ data class RegistrationCreatedResponse(
 data class RegistrationErrorResponse(
   val code: RegistrationErrorCode,
 )
+
+fun Registration.toResponse(): RegistrationResponse =
+  RegistrationResponse(
+    id = id.toString(),
+    name = name,
+    email = email,
+  )
+
+fun RegistrationWithAccessToken.toResponse(): RegistrationCreatedResponse =
+  RegistrationCreatedResponse(
+    registration = registration.toResponse(),
+    accessToken = accessToken,
+  )
+
+fun RegistrationRequest.toParticipant(): Participant = Participant(name, email)
