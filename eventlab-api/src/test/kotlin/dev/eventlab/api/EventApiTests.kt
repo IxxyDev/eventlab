@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActions
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -599,6 +600,15 @@ class EventApiTests {
   }
 
   @Test
+  fun `should return the same registration regardless of idempotency key case`() {
+    val createdId = createRegistration("3f6c2b9e-8a41-4d7f-9c55-0e2a7b1d4f60")
+
+    val result = register("3F6C2B9E-8A41-4D7F-9C55-0E2A7B1D4F60")
+
+    result.andExpect(jsonPath("$.registration.id").value(createdId))
+  }
+
+  @Test
   fun `should replace access token when registration is retried`() {
     val idempotencyKey = UUID.randomUUID().toString()
     val firstBody =
@@ -741,6 +751,17 @@ class EventApiTests {
 
   private fun fixedClock(instant: String): Clock =
     Clock.fixed(Instant.parse(instant), ZoneOffset.UTC)
+
+  private fun createRegistration(idempotencyKey: String): String {
+    val body = register(idempotencyKey).andReturn().response.contentAsString
+
+    return JsonPath.read(body, "$.registration.id")
+  }
+
+  private fun register(idempotencyKey: String): ResultActions =
+    mvc.perform(
+      registrationRequest("Anna", "anna@example.com", idempotencyKey),
+    )
 
   private fun registrationRequest(
     name: String,
