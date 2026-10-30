@@ -48,6 +48,7 @@ class EventTest {
   ): Event =
     Event(
       id = "sound-workshop",
+      organizationName = "Mixer school",
       title = "Sound workshop",
       description = "Description",
       startsAt = Instant.parse("2026-11-14T15:00:00Z"),

@@ -10,12 +10,24 @@ class EventService(
   private val eventRepository: EventRepository,
   private val clock: Clock,
 ) {
-  fun getEvent(): EventOverview {
-    val event = eventRepository.findById(EVENT_ID)
+  fun getEvent(id: String): EventOverview? {
+    val event = eventRepository.findById(id) ?: return null
+    val now = clock.instant()
 
     return EventOverview(
       event = event,
-      registrationOpen = event.isRegistrationOpen(clock.instant()),
+      registrationOpen = event.isRegistrationOpen(now),
     )
+  }
+
+  fun getEvents(): List<EventOverview> {
+    val now = clock.instant()
+
+    return eventRepository.findAll().map { event ->
+      EventOverview(
+        event = event,
+        registrationOpen = event.isRegistrationOpen(now),
+      )
+    }
   }
 }
