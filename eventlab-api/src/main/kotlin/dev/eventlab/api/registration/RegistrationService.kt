@@ -30,7 +30,8 @@ class RegistrationService(
       )
     }
 
-    val idempotencyKeyHash = idempotencyKey?.let { sha256(it) }
+    val idempotencyKeyHash =
+      idempotencyKey?.let { sha256(UUID.fromString(it).toString()) }
 
     return transactionTemplate.execute {
       val event = eventRepository.lockById(EVENT_ID)
