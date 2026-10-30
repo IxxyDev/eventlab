@@ -506,6 +506,44 @@ class EventApiTests {
   }
 
   @Test
+  fun `should list events from the nearest with their organizers`() {
+    val eventsResult = mvc.perform(get("/api/events"))
+
+    eventsResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.length()").value(2))
+      .andExpect(jsonPath("$[0].id").value("stage-lighting"))
+      .andExpect(
+        jsonPath("$[0].organizationName").value("Лаборатория света «Луч»"),
+      ).andExpect(jsonPath("$[0].timeZone").value("Asia/Yekaterinburg"))
+      .andExpect(jsonPath("$[1].id").value("sound-workshop"))
+      .andExpect(
+        jsonPath("$[1].organizationName")
+          .value("Школа звукорежиссуры «Микшер»"),
+      )
+  }
+
+  @Test
+  fun `should return event by its id`() {
+    val eventResult = mvc.perform(get("/api/events/{id}", "stage-lighting"))
+
+    eventResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.id").value("stage-lighting"))
+      .andExpect(
+        jsonPath("$.organizationName").value("Лаборатория света «Луч»"),
+      )
+  }
+
+  @Test
+  fun `should return 404 for nonexistent event`() {
+    val eventResult = mvc.perform(get("/api/events/{id}", "missing-event"))
+
+    eventResult
+      .andExpect(status().isNotFound())
+  }
+
+  @Test
   fun `should reject registration once event has started`() {
     val startedMvc = createMvc(fixedClock("2026-11-14T15:00:00Z"))
 
