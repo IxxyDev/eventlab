@@ -1,20 +1,16 @@
 package dev.eventlab.api
 
 import com.jayway.jsonpath.JsonPath
-import dev.eventlab.api.event.EventController
-import dev.eventlab.api.event.EventRepository
-import dev.eventlab.api.event.EventService
-import dev.eventlab.api.registration.RegistrationController
-import dev.eventlab.api.registration.RegistrationRepository
-import dev.eventlab.api.registration.RegistrationService
-import dev.eventlab.api.web.ApiExceptionHandler
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.BDDMockito.given
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActions
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
@@ -23,11 +19,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
-import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.CyclicBarrier
@@ -37,22 +30,25 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @Import(TestContainersConfiguration::class)
 class EventApiTests {
+  @Autowired
+  private lateinit var mvc: MockMvc
+
+  @MockitoBean
+  private lateinit var clock: Clock
+
   @Autowired
   private lateinit var jdbcClient: JdbcClient
 
   @Autowired
-  private lateinit var transactionTemplate: TransactionTemplate
-
-  @Autowired
   private lateinit var dataSource: DataSource
-  private lateinit var mvc: MockMvc
 
   @BeforeEach
   fun setUp() {
     jdbcClient.sql("DELETE FROM registrations").update()
-    mvc = createMvc()
+    given(clock.instant()).willReturn(Instant.parse("2026-11-01T09:00:00Z"))
   }
 
   @Test
@@ -194,10 +190,9 @@ class EventApiTests {
     val startLine = CyclicBarrier(participantCount)
     val requests =
       (1..participantCount).map { number ->
-        val server = createMvc()
         Callable {
           startLine.await()
-          server
+          mvc
             .perform(
               registrationRequest(
                 "Participant $number",
@@ -488,11 +483,11 @@ class EventApiTests {
 
   @Test
   fun `should reject registration once event has started`() {
-    val startedMvc = createMvc(fixedClock("2026-11-14T15:00:00Z"))
+    given(clock.instant()).willReturn(Instant.parse("2026-11-14T15:00:00Z"))
 
     val registrationResult =
-      startedMvc.perform(registrationRequest("Anna", "anna@example.com"))
-    val eventResult = startedMvc.perform(get("/api/event"))
+      mvc.perform(registrationRequest("Anna", "anna@example.com"))
+    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isConflict())
@@ -504,10 +499,10 @@ class EventApiTests {
 
   @Test
   fun `should accept registration one second before event start`() {
-    val lastSecondMvc = createMvc(fixedClock("2026-11-14T14:59:59Z"))
+    given(clock.instant()).willReturn(Instant.parse("2026-11-14T14:59:59Z"))
 
     val registrationResult =
-      lastSecondMvc.perform(registrationRequest("Anna", "anna@example.com"))
+      mvc.perform(registrationRequest("Anna", "anna@example.com"))
 
     registrationResult
       .andExpect(status().isCreated())
@@ -636,10 +631,9 @@ class EventApiTests {
     val startLine = CyclicBarrier(attemptCount)
     val requests =
       (1..attemptCount).map {
-        val server = createMvc()
         Callable {
           startLine.await()
-          server
+          mvc
             .perform(
               registrationRequest("Anna", "anna@example.com", idempotencyKey),
             ).andReturn()
@@ -669,30 +663,6 @@ class EventApiTests {
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
-
-  private fun createMvc(
-    clock: Clock = fixedClock("2026-11-01T09:00:00Z"),
-  ): MockMvc {
-    val eventRepository = EventRepository(jdbcClient)
-    val registrationRepository = RegistrationRepository(jdbcClient)
-
-    return MockMvcBuilders
-      .standaloneSetup(
-        EventController(EventService(eventRepository, clock)),
-        RegistrationController(
-          RegistrationService(
-            eventRepository,
-            registrationRepository,
-            transactionTemplate,
-            clock,
-          ),
-        ),
-      ).setControllerAdvice(ApiExceptionHandler())
-      .build()
-  }
-
-  private fun fixedClock(instant: String): Clock =
-    Clock.fixed(Instant.parse(instant), ZoneOffset.UTC)
 
   private fun createRegistration(idempotencyKey: String): String {
     val body = register(idempotencyKey).andReturn().response.contentAsString
