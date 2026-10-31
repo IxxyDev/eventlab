@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
+import java.util.UUID
 
 @RestController
 @CrossOrigin(origins = ["http://localhost:5173"])
@@ -24,13 +25,15 @@ class RegistrationController(
     @RequestHeader(
       value = "Idempotency-Key",
       required = false,
-    ) idempotencyKey: String?,
-  ): RegistrationCreatedResponse =
-    registrationService
-      .register(
-        request.toParticipant(),
-        idempotencyKey,
-      ).toResponse()
+    ) idempotencyKeyHeader: String?,
+  ): RegistrationCreatedResponse {
+    val participant = request.toParticipant()
+    val idempotencyKey = parseIdempotencyKey(idempotencyKeyHeader)
+
+    return registrationService
+      .register(participant, idempotencyKey)
+      .toResponse()
+  }
 
   @GetMapping("/api/registrations/{id}")
   fun getRegistration(
@@ -39,11 +42,14 @@ class RegistrationController(
       value = "Authorization",
       required = false,
     ) authorization: String?,
-  ): RegistrationResponse =
-    registrationService
-      .getRegistration(id, bearerToken(authorization))
+  ): RegistrationResponse {
+    val registrationId = parseRegistrationId(id)
+
+    return registrationService
+      .getRegistration(registrationId, bearerToken(authorization))
       ?.toResponse()
       ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+  }
 
   @DeleteMapping("/api/registrations/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -54,9 +60,10 @@ class RegistrationController(
       required = false,
     ) authorization: String?,
   ) {
+    val registrationId = parseRegistrationId(id)
     val cancelled =
       registrationService.cancelRegistration(
-        id,
+        registrationId,
         bearerToken(authorization),
       )
 
@@ -70,4 +77,26 @@ class RegistrationController(
       ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
       ?.substring(7)
       ?.trim()
+
+  private fun parseIdempotencyKey(header: String?): UUID? {
+    if (header == null) {
+      return null
+    }
+
+    return header.toUuidOrNull()
+      ?: throw RegistrationValidationException(
+        RegistrationErrorCode.INVALID_IDEMPOTENCY_KEY,
+      )
+  }
+
+  private fun parseRegistrationId(id: String): UUID =
+    id.toUuidOrNull()
+      ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 }
+
+private fun String.toUuidOrNull(): UUID? =
+  try {
+    UUID.fromString(this)
+  } catch (e: IllegalArgumentException) {
+    null
+  }

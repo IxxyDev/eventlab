@@ -22,16 +22,9 @@ class RegistrationService(
 
   fun register(
     participant: Participant,
-    idempotencyKey: String?,
+    idempotencyKey: UUID?,
   ): RegistrationWithAccessToken {
-    if (idempotencyKey != null && parseUuid(idempotencyKey) == null) {
-      throw RegistrationValidationException(
-        RegistrationErrorCode.INVALID_IDEMPOTENCY_KEY,
-      )
-    }
-
-    val idempotencyKeyHash =
-      idempotencyKey?.let { sha256(UUID.fromString(it).toString()) }
+    val idempotencyKeyHash = idempotencyKey?.let { sha256(it.toString()) }
 
     return transactionTemplate.execute {
       val event = eventRepository.lockById(EVENT_ID)
@@ -49,12 +42,12 @@ class RegistrationService(
   }
 
   fun getRegistration(
-    id: String,
+    id: UUID,
     token: String?,
   ): Registration? = findAccessibleRegistration(id, token)
 
   fun cancelRegistration(
-    id: String,
+    id: UUID,
     token: String?,
   ): Boolean {
     val registration =
@@ -134,11 +127,10 @@ class RegistrationService(
   }
 
   private fun findAccessibleRegistration(
-    id: String,
+    id: UUID,
     token: String?,
   ): Registration? {
-    val registrationId = parseUuid(id) ?: return null
-    val registration = registrationRepository.findById(registrationId)
+    val registration = registrationRepository.findById(id)
 
     if (registration == null || token.isNullOrEmpty()) {
       return null
@@ -171,11 +163,4 @@ class RegistrationService(
     MessageDigest
       .getInstance("SHA-256")
       .digest(value.toByteArray(Charsets.UTF_8))
-
-  private fun parseUuid(value: String): UUID? =
-    try {
-      UUID.fromString(value)
-    } catch (e: IllegalArgumentException) {
-      null
-    }
 }
