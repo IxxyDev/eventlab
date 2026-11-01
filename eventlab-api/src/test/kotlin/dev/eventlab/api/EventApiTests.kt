@@ -56,19 +56,11 @@ class EventApiTests {
   @Test
   fun `should return 400 with invalid email without occupying a seat`() {
     createEvent(capacity = 1)
-    val requestBody =
-      """
-      {
-          "name": "Anna",
-          "email": "not-an-email"
-      }
-      """.trimIndent()
-    val request =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(requestBody)
 
-    val registrationResult = mvc.perform(request)
+    val registrationResult =
+      mvc.perform(
+        registrationRequest("Anna", "not-an-email"),
+      )
     val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
@@ -82,19 +74,9 @@ class EventApiTests {
   @Test
   fun `should create registration and occupy a seat`() {
     createEvent(capacity = 1)
-    val requestBody =
-      """
-      {
-          "name": "Anna",
-          "email": "anna@example.com"
-      }
-      """.trimIndent()
-    val request =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(requestBody)
 
-    val registrationResult = mvc.perform(request)
+    val registrationResult =
+      mvc.perform(registrationRequest("Anna", "anna@example.com"))
     val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
@@ -112,33 +94,10 @@ class EventApiTests {
   @Test
   fun `should reject duplicate email regardless of case`() {
     createEvent(capacity = 2)
-    val originalRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    mvc
-      .perform(originalRequest)
-      .andExpect(status().isCreated())
-    val duplicateRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Another Anna",
-              "email": "ANNA@example.com"
-          }
-          """.trimIndent(),
-        )
+    createRegistration("Anna", "anna@example.com")
 
-    val registrationResult = mvc.perform(duplicateRequest)
+    val registrationResult =
+      mvc.perform(registrationRequest("Another Anna", "ANNA@example.com"))
     val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
@@ -152,33 +111,10 @@ class EventApiTests {
   @Test
   fun `should reject another participant when event is full`() {
     createEvent(capacity = 1)
-    val originalRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    mvc
-      .perform(originalRequest)
-      .andExpect(status().isCreated())
-    val anotherRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Boris",
-              "email": "boris@example.com"
-          }
-          """.trimIndent(),
-        )
+    createRegistration("Anna", "anna@example.com")
 
-    val registrationResult = mvc.perform(anotherRequest)
+    val registrationResult =
+      mvc.perform(registrationRequest("Boris", "boris@example.com"))
     val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
@@ -227,35 +163,16 @@ class EventApiTests {
   @Test
   fun `should return registration with valid access token`() {
     createEvent()
-    val createRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    val responseBody =
-      mvc
-        .perform(createRequest)
-        .andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(responseBody, "$.registration.id")
-    val accessToken = JsonPath.read<String>(responseBody, "$.accessToken")
+    val registration = createRegistration("Anna", "anna@example.com")
     val readRequest =
-      get("/api/registrations/{id}", id)
-        .header("Authorization", "Bearer $accessToken")
+      get("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${registration.accessToken}")
 
     val result = mvc.perform(readRequest)
 
     result
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.id").value(id))
+      .andExpect(jsonPath("$.id").value(registration.id))
       .andExpect(jsonPath("$.name").value("Anna"))
       .andExpect(jsonPath("$.email").value("anna@example.com"))
       .andExpect(jsonPath("$.accessToken").doesNotExist())
@@ -279,26 +196,8 @@ class EventApiTests {
   @Test
   fun `should return 404 for registration without access token`() {
     createEvent()
-    val createRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    val responseBody =
-      mvc
-        .perform(createRequest)
-        .andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(responseBody, "$.registration.id")
-    val readRequest = get("/api/registrations/{id}", id)
+    val registration = createRegistration()
+    val readRequest = get("/api/registrations/{id}", registration.id)
 
     val result = mvc.perform(readRequest)
 
@@ -321,32 +220,13 @@ class EventApiTests {
   @Test
   fun `should cancel registration and release a seat`() {
     createEvent(capacity = 1)
-    val createRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    val responseBody =
-      mvc
-        .perform(createRequest)
-        .andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(responseBody, "$.registration.id")
-    val token = JsonPath.read<String>(responseBody, "$.accessToken")
+    val registration = createRegistration()
     val cancelRequest =
-      delete("/api/registrations/{id}", id)
-        .header("Authorization", "Bearer $token")
+      delete("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${registration.accessToken}")
     val readRequest =
-      get("/api/registrations/{id}", id)
-        .header("Authorization", "Bearer $token")
+      get("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${registration.accessToken}")
 
     val cancellationResult = mvc.perform(cancelRequest)
     val registrationResult = mvc.perform(readRequest)
@@ -390,23 +270,16 @@ class EventApiTests {
   @Test
   fun `should not store access token in database`() {
     createEvent()
-    val responseBody =
-      mvc
-        .perform(registrationRequest("Anna", "anna@example.com"))
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(responseBody, "$.registration.id")
-    val accessToken = JsonPath.read<String>(responseBody, "$.accessToken")
+    val registration = createRegistration()
 
     val storedRow =
       jdbcClient
         .sql("SELECT r::text FROM registrations r WHERE id = :id")
-        .param("id", UUID.fromString(id))
+        .param("id", UUID.fromString(registration.id))
         .query(String::class.java)
         .single()
 
-    assertFalse(storedRow.contains(accessToken))
+    assertFalse(storedRow.contains(registration.accessToken))
   }
 
   @Test
@@ -518,15 +391,7 @@ class EventApiTests {
   fun `should return the same registration when retried with the same idempotency key`() {
     createEvent(capacity = 1)
     val idempotencyKey = UUID.randomUUID().toString()
-    val firstBody =
-      mvc
-        .perform(
-          registrationRequest("Anna", "anna@example.com", idempotencyKey),
-        ).andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val firstId = JsonPath.read<String>(firstBody, "$.registration.id")
+    val registration = createRegistration(idempotencyKey = idempotencyKey)
 
     val retryResult =
       mvc.perform(
@@ -536,7 +401,7 @@ class EventApiTests {
 
     retryResult
       .andExpect(status().isCreated())
-      .andExpect(jsonPath("$.registration.id").value(firstId))
+      .andExpect(jsonPath("$.registration.id").value(registration.id))
       .andExpect(jsonPath("$.accessToken").isNotEmpty())
     eventResult
       .andExpect(status().isOk())
@@ -560,51 +425,32 @@ class EventApiTests {
   fun `should replace access token when registration is retried`() {
     createEvent()
     val idempotencyKey = UUID.randomUUID().toString()
-    val firstBody =
-      mvc
-        .perform(
-          registrationRequest("Anna", "anna@example.com", idempotencyKey),
-        ).andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val retryBody =
-      mvc
-        .perform(
-          registrationRequest("Anna", "anna@example.com", idempotencyKey),
-        ).andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(retryBody, "$.registration.id")
-    val firstToken = JsonPath.read<String>(firstBody, "$.accessToken")
-    val retryToken = JsonPath.read<String>(retryBody, "$.accessToken")
+    val first = createRegistration(idempotencyKey = idempotencyKey)
+    val retry = createRegistration(idempotencyKey = idempotencyKey)
 
     val firstTokenResult =
       mvc.perform(
-        get("/api/registrations/{id}", id)
-          .header("Authorization", "Bearer $firstToken"),
+        get("/api/registrations/{id}", retry.id)
+          .header("Authorization", "Bearer ${first.accessToken}"),
       )
     val retryTokenResult =
       mvc.perform(
-        get("/api/registrations/{id}", id)
-          .header("Authorization", "Bearer $retryToken"),
+        get("/api/registrations/{id}", retry.id)
+          .header("Authorization", "Bearer ${retry.accessToken}"),
       )
 
     firstTokenResult
       .andExpect(status().isNotFound())
     retryTokenResult
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.id").value(id))
+      .andExpect(jsonPath("$.id").value(retry.id))
   }
 
   @Test
   fun `should reject idempotency key reused with different data`() {
     createEvent(capacity = 1)
     val idempotencyKey = UUID.randomUUID().toString()
-    mvc
-      .perform(registrationRequest("Anna", "anna@example.com", idempotencyKey))
-      .andExpect(status().isCreated())
+    createRegistration(idempotencyKey = idempotencyKey)
 
     val reuseResult =
       mvc.perform(
