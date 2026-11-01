@@ -262,30 +262,13 @@ class EventApiTests {
   }
 
   @Test
-  fun `should return 404 for registration with invalid access token`() {
+  fun `should return 404 for registration with access token of another registration`() {
     createEvent()
-    val createRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    val responseBody =
-      mvc
-        .perform(createRequest)
-        .andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(responseBody, "$.registration.id")
+    val registration = createRegistration("Anna", "anna@example.com")
+    val anotherRegistration = createRegistration("Boris", "boris@example.com")
     val readRequest =
-      get("/api/registrations/{id}", id)
-        .header("Authorization", "Bearer invalid-token")
+      get("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
 
     val result = mvc.perform(readRequest)
 
@@ -379,34 +362,16 @@ class EventApiTests {
   }
 
   @Test
-  fun `should reject cancellation with invalid token and preserve registration`() {
-    createEvent(capacity = 1)
-    val createRequest =
-      post("/api/event/registrations")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(
-          """
-          {
-              "name": "Anna",
-              "email": "anna@example.com"
-          }
-          """.trimIndent(),
-        )
-    val responseBody =
-      mvc
-        .perform(createRequest)
-        .andExpect(status().isCreated())
-        .andReturn()
-        .response
-        .contentAsString
-    val id = JsonPath.read<String>(responseBody, "$.registration.id")
-    val token = JsonPath.read<String>(responseBody, "$.accessToken")
+  fun `should not cancel registration with access token of another registration`() {
+    createEvent(capacity = 2)
+    val registration = createRegistration("Anna", "anna@example.com")
+    val anotherRegistration = createRegistration("Boris", "boris@example.com")
     val cancelRequest =
-      delete("/api/registrations/{id}", id)
-        .header("Authorization", "Bearer invalid-token")
+      delete("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
     val readRequest =
-      get("/api/registrations/{id}", id)
-        .header("Authorization", "Bearer $token")
+      get("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${registration.accessToken}")
 
     val cancellationResult = mvc.perform(cancelRequest)
     val registrationResult = mvc.perform(readRequest)
@@ -416,7 +381,7 @@ class EventApiTests {
       .andExpect(status().isNotFound())
     registrationResult
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.id").value(id))
+      .andExpect(jsonPath("$.id").value(registration.id))
     eventResult
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
@@ -581,11 +546,14 @@ class EventApiTests {
   @Test
   fun `should return the same registration regardless of idempotency key case`() {
     createEvent()
-    val createdId = createRegistration("3f6c2b9e-8a41-4d7f-9c55-0e2a7b1d4f60")
+    val registration =
+      createRegistration(
+        idempotencyKey = "3f6c2b9e-8a41-4d7f-9c55-0e2a7b1d4f60",
+      )
 
     val result = register("3F6C2B9E-8A41-4D7F-9C55-0E2A7B1D4F60")
 
-    result.andExpect(jsonPath("$.registration.id").value(createdId))
+    result.andExpect(jsonPath("$.registration.id").value(registration.id))
   }
 
   @Test
@@ -761,10 +729,22 @@ class EventApiTests {
       .update()
   }
 
-  private fun createRegistration(idempotencyKey: String): String {
-    val body = register(idempotencyKey).andReturn().response.contentAsString
+  private fun createRegistration(
+    name: String = "Anna",
+    email: String = "anna@example.com",
+    idempotencyKey: String? = null,
+  ): CreatedRegistration {
+    val body =
+      mvc
+        .perform(registrationRequest(name, email, idempotencyKey))
+        .andReturn()
+        .response
+        .contentAsString
 
-    return JsonPath.read(body, "$.registration.id")
+    return CreatedRegistration(
+      id = JsonPath.read(body, "$.registration.id"),
+      accessToken = JsonPath.read(body, "$.accessToken"),
+    )
   }
 
   private fun register(idempotencyKey: String): ResultActions =
@@ -794,3 +774,8 @@ class EventApiTests {
     connections.forEach { it.close() }
   }
 }
+
+private data class CreatedRegistration(
+  val id: String,
+  val accessToken: String,
+)
