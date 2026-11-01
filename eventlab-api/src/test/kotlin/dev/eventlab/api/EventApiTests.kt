@@ -111,7 +111,7 @@ class EventApiTests {
 
   @Test
   fun `should reject duplicate email regardless of case`() {
-    createEvent(capacity = 1)
+    createEvent(capacity = 2)
     val originalRequest =
       post("/api/event/registrations")
         .contentType(MediaType.APPLICATION_JSON)
@@ -146,7 +146,7 @@ class EventApiTests {
       .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"))
     eventResult
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(0))
+      .andExpect(jsonPath("$.availableSeats").value(1))
   }
 
   @Test
