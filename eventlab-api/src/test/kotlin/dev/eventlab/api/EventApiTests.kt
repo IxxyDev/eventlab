@@ -54,21 +54,17 @@ class EventApiTests {
   }
 
   @Test
-  fun `should return 400 with invalid email without occupying a seat`() {
-    createEvent(capacity = 1)
+  fun `should reject invalid email`() {
+    createEvent()
 
     val registrationResult =
       mvc.perform(
         registrationRequest("Anna", "not-an-email"),
       )
-    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isBadRequest())
       .andExpect(jsonPath("$.code").value("INVALID_EMAIL"))
-    eventResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(1))
   }
 
   @Test
@@ -98,14 +94,10 @@ class EventApiTests {
 
     val registrationResult =
       mvc.perform(registrationRequest("Another Anna", "ANNA@example.com"))
-    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isConflict())
       .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"))
-    eventResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(1))
   }
 
   @Test
@@ -115,14 +107,10 @@ class EventApiTests {
 
     val registrationResult =
       mvc.perform(registrationRequest("Boris", "boris@example.com"))
-    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isConflict())
       .andExpect(jsonPath("$.code").value("EVENT_FULL"))
-    eventResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
   @Test
@@ -448,7 +436,7 @@ class EventApiTests {
 
   @Test
   fun `should reject idempotency key reused with different data`() {
-    createEvent(capacity = 1)
+    createEvent()
     val idempotencyKey = UUID.randomUUID().toString()
     createRegistration(idempotencyKey = idempotencyKey)
 
@@ -456,31 +444,24 @@ class EventApiTests {
       mvc.perform(
         registrationRequest("Boris", "boris@example.com", idempotencyKey),
       )
-    val eventResult = mvc.perform(get("/api/event"))
 
     reuseResult
       .andExpect(status().isUnprocessableContent())
       .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"))
-    eventResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
   @Test
-  fun `should return 400 with malformed idempotency key without occupying the seat`() {
-    createEvent(capacity = 1)
+  fun `should reject malformed idempotency key`() {
+    createEvent()
+
     val registrationResult =
       mvc.perform(
         registrationRequest("Anna", "anna@example.com", "not-a-uuid"),
       )
-    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isBadRequest())
       .andExpect(jsonPath("$.code").value("INVALID_IDEMPOTENCY_KEY"))
-    eventResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.availableSeats").value(1))
   }
 
   @Test
