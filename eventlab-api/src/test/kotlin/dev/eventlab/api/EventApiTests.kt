@@ -68,12 +68,11 @@ class EventApiTests {
   }
 
   @Test
-  fun `should create registration and occupy a seat`() {
-    createEvent(capacity = 1)
+  fun `should create registration`() {
+    createEvent()
 
     val registrationResult =
       mvc.perform(registrationRequest("Anna", "anna@example.com"))
-    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isCreated())
@@ -82,6 +81,15 @@ class EventApiTests {
         jsonPath("$.registration.email").value("anna@example.com"),
       ).andExpect(jsonPath("$.registration.id").isNotEmpty())
       .andExpect(jsonPath("$.accessToken").isNotEmpty())
+  }
+
+  @Test
+  fun `should occupy a seat on registration`() {
+    createEvent(capacity = 1)
+
+    mvc.perform(registrationRequest("Anna", "anna@example.com"))
+    val eventResult = mvc.perform(get("/api/event"))
+
     eventResult
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
