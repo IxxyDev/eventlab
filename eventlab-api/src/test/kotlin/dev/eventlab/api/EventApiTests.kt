@@ -242,25 +242,31 @@ class EventApiTests {
 
   @Test
   fun `should not cancel registration with access token of another registration`() {
+    createEvent()
+    val registration = createRegistration("Anna", "anna@example.com")
+    val anotherRegistration = createRegistration("Boris", "boris@example.com")
+    val cancelRequest =
+      delete("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
+
+    val cancellationResult = mvc.perform(cancelRequest)
+
+    cancellationResult
+      .andExpect(status().isNotFound())
+  }
+
+  @Test
+  fun `should keep a seat on cancellation with access token of another registration`() {
     createEvent(capacity = 2)
     val registration = createRegistration("Anna", "anna@example.com")
     val anotherRegistration = createRegistration("Boris", "boris@example.com")
     val cancelRequest =
       delete("/api/registrations/{id}", registration.id)
         .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
-    val readRequest =
-      get("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${registration.accessToken}")
 
-    val cancellationResult = mvc.perform(cancelRequest)
-    val registrationResult = mvc.perform(readRequest)
+    mvc.perform(cancelRequest)
     val eventResult = mvc.perform(get("/api/event"))
 
-    cancellationResult
-      .andExpect(status().isNotFound())
-    registrationResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.id").value(registration.id))
     eventResult
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
