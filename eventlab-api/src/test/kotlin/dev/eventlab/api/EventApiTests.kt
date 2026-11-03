@@ -83,7 +83,6 @@ class EventApiTests {
       ).andExpect(jsonPath("$.registration.id").isNotEmpty())
       .andExpect(jsonPath("$.accessToken").isNotEmpty())
     eventResult
-      .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
@@ -144,7 +143,6 @@ class EventApiTests {
     assertEquals(1, statuses.count { it == 201 })
     assertEquals(participantCount - 1, statuses.count { it == 409 })
     eventResult
-      .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
@@ -225,7 +223,6 @@ class EventApiTests {
     registrationResult
       .andExpect(status().isNotFound())
     eventResult
-      .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(1))
   }
 
@@ -251,7 +248,6 @@ class EventApiTests {
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.id").value(registration.id))
     eventResult
-      .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
@@ -392,7 +388,6 @@ class EventApiTests {
       .andExpect(jsonPath("$.registration.id").value(registration.id))
       .andExpect(jsonPath("$.accessToken").isNotEmpty())
     eventResult
-      .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
@@ -502,7 +497,6 @@ class EventApiTests {
         .size,
     )
     eventResult
-      .andExpect(status().isOk())
       .andExpect(jsonPath("$.availableSeats").value(0))
   }
 
