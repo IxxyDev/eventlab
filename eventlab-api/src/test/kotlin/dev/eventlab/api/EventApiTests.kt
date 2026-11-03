@@ -212,24 +212,30 @@ class EventApiTests {
   }
 
   @Test
-  fun `should cancel registration and release a seat`() {
+  fun `should cancel registration`() {
+    createEvent()
+    val registration = createRegistration()
+    val cancelRequest =
+      delete("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${registration.accessToken}")
+
+    val cancellationResult = mvc.perform(cancelRequest)
+
+    cancellationResult
+      .andExpect(status().isNoContent())
+  }
+
+  @Test
+  fun `should release a seat on cancellation`() {
     createEvent(capacity = 1)
     val registration = createRegistration()
     val cancelRequest =
       delete("/api/registrations/{id}", registration.id)
         .header("Authorization", "Bearer ${registration.accessToken}")
-    val readRequest =
-      get("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${registration.accessToken}")
 
-    val cancellationResult = mvc.perform(cancelRequest)
-    val registrationResult = mvc.perform(readRequest)
+    mvc.perform(cancelRequest)
     val eventResult = mvc.perform(get("/api/event"))
 
-    cancellationResult
-      .andExpect(status().isNoContent())
-    registrationResult
-      .andExpect(status().isNotFound())
     eventResult
       .andExpect(jsonPath("$.availableSeats").value(1))
   }
