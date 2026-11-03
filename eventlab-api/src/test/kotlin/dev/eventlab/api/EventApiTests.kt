@@ -169,6 +169,19 @@ class EventApiTests {
       .andExpect(jsonPath("$.id").value(registration.id))
       .andExpect(jsonPath("$.name").value("Anna"))
       .andExpect(jsonPath("$.email").value("anna@example.com"))
+  }
+
+  @Test
+  fun `should not return access token when reading registration`() {
+    createEvent()
+    val registration = createRegistration()
+    val readRequest =
+      get("/api/registrations/{id}", registration.id)
+        .header("Authorization", "Bearer ${registration.accessToken}")
+
+    val result = mvc.perform(readRequest)
+
+    result
       .andExpect(jsonPath("$.accessToken").doesNotExist())
   }
 
