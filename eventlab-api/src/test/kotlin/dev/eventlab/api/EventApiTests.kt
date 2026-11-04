@@ -88,10 +88,8 @@ class EventApiTests {
     createEvent(capacity = 1)
 
     mvc.perform(registrationRequest("Anna", "anna@example.com"))
-    val eventResult = mvc.perform(get("/api/event"))
 
-    eventResult
-      .andExpect(jsonPath("$.availableSeats").value(0))
+    expectAvailableSeats(0)
   }
 
   @Test
@@ -146,12 +144,10 @@ class EventApiTests {
       Executors.newFixedThreadPool(participantCount).use { executor ->
         executor.invokeAll(requests).map { it.get() }
       }
-    val eventResult = mvc.perform(get("/api/event"))
 
     assertEquals(1, statuses.count { it == 201 })
     assertEquals(participantCount - 1, statuses.count { it == 409 })
-    eventResult
-      .andExpect(jsonPath("$.availableSeats").value(0))
+    expectAvailableSeats(0)
   }
 
   @Test
@@ -242,10 +238,8 @@ class EventApiTests {
     val registration = createRegistration()
 
     cancelRegistration(registration.id, registration.accessToken)
-    val eventResult = mvc.perform(get("/api/event"))
 
-    eventResult
-      .andExpect(jsonPath("$.availableSeats").value(1))
+    expectAvailableSeats(1)
   }
 
   @Test
@@ -268,10 +262,8 @@ class EventApiTests {
     val anotherRegistration = createRegistration("Boris", "boris@example.com")
 
     cancelRegistration(registration.id, anotherRegistration.accessToken)
-    val eventResult = mvc.perform(get("/api/event"))
 
-    eventResult
-      .andExpect(jsonPath("$.availableSeats").value(0))
+    expectAvailableSeats(0)
   }
 
   @Test
@@ -404,14 +396,12 @@ class EventApiTests {
       mvc.perform(
         registrationRequest("Anna", "anna@example.com", idempotencyKey),
       )
-    val eventResult = mvc.perform(get("/api/event"))
 
     retryResult
       .andExpect(status().isCreated())
       .andExpect(jsonPath("$.registration.id").value(registration.id))
       .andExpect(jsonPath("$.accessToken").isNotEmpty())
-    eventResult
-      .andExpect(jsonPath("$.availableSeats").value(0))
+    expectAvailableSeats(0)
   }
 
   @Test
@@ -505,7 +495,6 @@ class EventApiTests {
       Executors.newFixedThreadPool(attemptCount).use { executor ->
         executor.invokeAll(requests).map { it.get() }
       }
-    val eventResult = mvc.perform(get("/api/event"))
 
     assertEquals(List(attemptCount) { 201 }, responses.map { it.status })
     assertEquals(
@@ -519,8 +508,7 @@ class EventApiTests {
         }.distinct()
         .size,
     )
-    eventResult
-      .andExpect(jsonPath("$.availableSeats").value(0))
+    expectAvailableSeats(0)
   }
 
   private fun createEvent(
@@ -625,6 +613,12 @@ class EventApiTests {
   private fun warmUpConnectionPool(size: Int) {
     val connections = (1..size).map { dataSource.connection }
     connections.forEach { it.close() }
+  }
+
+  private fun expectAvailableSeats(count: Int) {
+    mvc
+      .perform(get("/api/event"))
+      .andExpect(jsonPath("$.availableSeats").value(count))
   }
 }
 
