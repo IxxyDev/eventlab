@@ -11,6 +11,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActions
@@ -122,28 +123,15 @@ class EventApiTests {
   fun `should give the last seat to only one of many simultaneous participants`() {
     createEvent(capacity = 1)
     val participantCount = 10
-    warmUpConnectionPool(participantCount)
-    val startLine = CyclicBarrier(participantCount)
     val requests =
       (1..participantCount).map { number ->
-        Callable {
-          startLine.await()
-          mvc
-            .perform(
-              registrationRequest(
-                "Participant $number",
-                "participant$number@example.com",
-              ),
-            ).andReturn()
-            .response
-            .status
-        }
+        registrationRequest(
+          "Participant $number",
+          "participant$number@example.com",
+        )
       }
 
-    val statuses =
-      Executors.newFixedThreadPool(participantCount).use { executor ->
-        executor.invokeAll(requests).map { it.get() }
-      }
+    val statuses = performSimultaneously(requests).map { it.status }
 
     assertEquals(1, statuses.count { it == 201 })
     assertEquals(participantCount - 1, statuses.count { it == 409 })
@@ -484,24 +472,12 @@ class EventApiTests {
     createEvent(capacity = 1)
     val attemptCount = 5
     val idempotencyKey = UUID.randomUUID().toString()
-    warmUpConnectionPool(attemptCount)
-    val startLine = CyclicBarrier(attemptCount)
     val requests =
-      (1..attemptCount).map {
-        Callable {
-          startLine.await()
-          mvc
-            .perform(
-              registrationRequest("Anna", "anna@example.com", idempotencyKey),
-            ).andReturn()
-            .response
-        }
+      List(attemptCount) {
+        registrationRequest("Anna", "anna@example.com", idempotencyKey)
       }
 
-    val responses =
-      Executors.newFixedThreadPool(attemptCount).use { executor ->
-        executor.invokeAll(requests).map { it.get() }
-      }
+    val responses = performSimultaneously(requests)
 
     assertEquals(List(attemptCount) { 201 }, responses.map { it.status })
     assertEquals(
@@ -624,6 +600,24 @@ class EventApiTests {
     }
 
     return request
+  }
+
+  private fun performSimultaneously(
+    requests: List<MockHttpServletRequestBuilder>,
+  ): List<MockHttpServletResponse> {
+    warmUpConnectionPool(requests.size)
+    val startLine = CyclicBarrier(requests.size)
+    val tasks =
+      requests.map { request ->
+        Callable {
+          startLine.await()
+          mvc.perform(request).andReturn().response
+        }
+      }
+
+    return Executors.newFixedThreadPool(requests.size).use { executor ->
+      executor.invokeAll(tasks).map { it.get() }
+    }
   }
 
   private fun warmUpConnectionPool(size: Int) {
