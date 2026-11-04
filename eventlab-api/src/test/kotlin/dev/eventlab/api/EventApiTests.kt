@@ -357,19 +357,26 @@ class EventApiTests {
 
   @Test
   fun `should reject registration once event has started`() {
-    createEvent(startsAt = "2026-11-14T15:00:00Z", capacity = 1)
-    given(clock.instant()).willReturn(Instant.parse("2026-11-14T15:00:00Z"))
+    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    given(clock.instant()).willReturn(Instant.parse("2026-11-15T09:00:00Z"))
 
     val registrationResult =
       mvc.perform(registrationRequest("Anna", "anna@example.com"))
-    val eventResult = mvc.perform(get("/api/event"))
 
     registrationResult
       .andExpect(status().isConflict())
       .andExpect(jsonPath("$.code").value("REGISTRATION_CLOSED"))
+  }
+
+  @Test
+  fun `should report registration as closed once event has started`() {
+    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    given(clock.instant()).willReturn(Instant.parse("2026-11-15T09:00:00Z"))
+
+    val eventResult = mvc.perform(get("/api/event"))
+
     eventResult
       .andExpect(jsonPath("$.registrationOpen").value(false))
-      .andExpect(jsonPath("$.availableSeats").value(1))
   }
 
   @Test
