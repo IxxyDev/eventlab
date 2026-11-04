@@ -284,6 +284,16 @@ class EventApiTests {
       .andExpect(jsonPath("$.startsAt").value("2026-11-14T15:00:00Z"))
       .andExpect(jsonPath("$.endsAt").value("2026-11-14T17:00:00Z"))
       .andExpect(jsonPath("$.timeZone").value("Europe/Moscow"))
+  }
+
+  @Test
+  fun `should report registration as open before event starts`() {
+    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    given(clock.instant()).willReturn(Instant.parse("2026-11-01T09:00:00Z"))
+
+    val eventResult = mvc.perform(get("/api/event"))
+
+    eventResult
       .andExpect(jsonPath("$.registrationOpen").value(true))
   }
 
