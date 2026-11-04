@@ -154,11 +154,8 @@ class EventApiTests {
   fun `should return registration with valid access token`() {
     createEvent()
     val registration = createRegistration("Anna", "anna@example.com")
-    val readRequest =
-      get("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${registration.accessToken}")
 
-    val result = mvc.perform(readRequest)
+    val result = readRegistration(registration.id, registration.accessToken)
 
     result
       .andExpect(status().isOk())
@@ -171,11 +168,8 @@ class EventApiTests {
   fun `should not return access token when reading registration`() {
     createEvent()
     val registration = createRegistration()
-    val readRequest =
-      get("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${registration.accessToken}")
 
-    val result = mvc.perform(readRequest)
+    val result = readRegistration(registration.id, registration.accessToken)
 
     result
       .andExpect(jsonPath("$.accessToken").doesNotExist())
@@ -186,11 +180,9 @@ class EventApiTests {
     createEvent()
     val registration = createRegistration("Anna", "anna@example.com")
     val anotherRegistration = createRegistration("Boris", "boris@example.com")
-    val readRequest =
-      get("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
 
-    val result = mvc.perform(readRequest)
+    val result =
+      readRegistration(registration.id, anotherRegistration.accessToken)
 
     result
       .andExpect(status().isNotFound())
@@ -210,11 +202,7 @@ class EventApiTests {
 
   @Test
   fun `should return 404 for nonexistent registration`() {
-    val readRequest =
-      get("/api/registrations/{id}", "missing-registration")
-        .header("Authorization", "Bearer some-token")
-
-    val result = mvc.perform(readRequest)
+    val result = readRegistration("missing-registration", "some-token")
 
     result
       .andExpect(status().isNotFound())
@@ -425,15 +413,9 @@ class EventApiTests {
     val retry = createRegistration(idempotencyKey = idempotencyKey)
 
     val firstTokenResult =
-      mvc.perform(
-        get("/api/registrations/{id}", retry.id)
-          .header("Authorization", "Bearer ${first.accessToken}"),
-      )
+      readRegistration(retry.id, first.accessToken)
     val retryTokenResult =
-      mvc.perform(
-        get("/api/registrations/{id}", retry.id)
-          .header("Authorization", "Bearer ${retry.accessToken}"),
-      )
+      readRegistration(retry.id, retry.accessToken)
 
     firstTokenResult
       .andExpect(status().isNotFound())
@@ -582,6 +564,15 @@ class EventApiTests {
   private fun register(idempotencyKey: String): ResultActions =
     mvc.perform(
       registrationRequest("Anna", "anna@example.com", idempotencyKey),
+    )
+
+  private fun readRegistration(
+    id: String,
+    accessToken: String,
+  ): ResultActions =
+    mvc.perform(
+      get("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $accessToken"),
     )
 
   private fun cancelRegistration(
