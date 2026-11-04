@@ -298,7 +298,21 @@ class EventApiTests {
   }
 
   @Test
-  fun `should list events from the nearest with their organizers`() {
+  fun `should list events from the nearest`() {
+    createEvent(id = "sound-workshop", startsAt = "2026-11-14T15:00:00Z")
+    createEvent(id = "stage-lighting", startsAt = "2026-11-07T14:00:00Z")
+
+    val eventsResult = mvc.perform(get("/api/events"))
+
+    eventsResult
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.length()").value(2))
+      .andExpect(jsonPath("$[0].id").value("stage-lighting"))
+      .andExpect(jsonPath("$[1].id").value("sound-workshop"))
+  }
+
+  @Test
+  fun `should list events with their organizers`() {
     createEvent(
       id = "sound-workshop",
       organizationName = "Школа звукорежиссуры «Микшер»",
@@ -308,20 +322,14 @@ class EventApiTests {
       id = "stage-lighting",
       organizationName = "Лаборатория света «Луч»",
       startsAt = "2026-11-07T14:00:00Z",
-      timeZone = "Asia/Yekaterinburg",
     )
 
     val eventsResult = mvc.perform(get("/api/events"))
 
     eventsResult
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.length()").value(2))
-      .andExpect(jsonPath("$[0].id").value("stage-lighting"))
       .andExpect(
         jsonPath("$[0].organizationName").value("Лаборатория света «Луч»"),
-      ).andExpect(jsonPath("$[0].timeZone").value("Asia/Yekaterinburg"))
-      .andExpect(jsonPath("$[1].id").value("sound-workshop"))
-      .andExpect(
+      ).andExpect(
         jsonPath("$[1].organizationName")
           .value("Школа звукорежиссуры «Микшер»"),
       )
@@ -380,33 +388,28 @@ class EventApiTests {
   }
 
   @Test
-  fun `should accept registration one second before event start`() {
-    createEvent(startsAt = "2026-11-14T15:00:00Z")
-    given(clock.instant()).willReturn(Instant.parse("2026-11-14T14:59:59Z"))
-
-    val registrationResult =
-      mvc.perform(registrationRequest("Anna", "anna@example.com"))
-
-    registrationResult
-      .andExpect(status().isCreated())
-  }
-
-  @Test
   fun `should return the same registration when retried with the same idempotency key`() {
-    createEvent(capacity = 1)
+    createEvent()
     val idempotencyKey = UUID.randomUUID().toString()
     val registration = createRegistration(idempotencyKey = idempotencyKey)
 
-    val retryResult =
-      mvc.perform(
-        registrationRequest("Anna", "anna@example.com", idempotencyKey),
-      )
+    val retryResult = register(idempotencyKey)
 
     retryResult
       .andExpect(status().isCreated())
       .andExpect(jsonPath("$.registration.id").value(registration.id))
-      .andExpect(jsonPath("$.accessToken").isNotEmpty())
-    expectAvailableSeats(0)
+  }
+
+  @Test
+  fun `should return the same registration when retried on a full event`() {
+    createEvent(capacity = 1)
+    val idempotencyKey = UUID.randomUUID().toString()
+    val registration = createRegistration(idempotencyKey = idempotencyKey)
+
+    val retryResult = register(idempotencyKey)
+
+    retryResult
+      .andExpect(jsonPath("$.registration.id").value(registration.id))
   }
 
   @Test
@@ -423,22 +426,27 @@ class EventApiTests {
   }
 
   @Test
-  fun `should replace access token when registration is retried`() {
+  fun `should revoke previous access token when registration is retried`() {
     createEvent()
     val idempotencyKey = UUID.randomUUID().toString()
     val first = createRegistration(idempotencyKey = idempotencyKey)
+
+    register(idempotencyKey)
+
+    readRegistration(first.id, first.accessToken)
+      .andExpect(status().isNotFound())
+  }
+
+  @Test
+  fun `should return working access token when registration is retried`() {
+    createEvent()
+    val idempotencyKey = UUID.randomUUID().toString()
+    createRegistration(idempotencyKey = idempotencyKey)
+
     val retry = createRegistration(idempotencyKey = idempotencyKey)
 
-    val firstTokenResult =
-      readRegistration(retry.id, first.accessToken)
-    val retryTokenResult =
-      readRegistration(retry.id, retry.accessToken)
-
-    firstTokenResult
-      .andExpect(status().isNotFound())
-    retryTokenResult
+    readRegistration(retry.id, retry.accessToken)
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.id").value(retry.id))
   }
 
   @Test

@@ -6,10 +6,16 @@ import kotlin.test.assertFailsWith
 
 class ParticipantTest {
   @Test
-  fun `should trim spaces around name and email`() {
-    val participant = Participant("  Anna ", " anna@example.com  ")
+  fun `should trim spaces around name`() {
+    val participant = Participant("  Anna ", "anna@example.com")
 
     assertEquals("Anna", participant.name)
+  }
+
+  @Test
+  fun `should trim spaces around email`() {
+    val participant = Participant("Anna", " anna@example.com  ")
+
     assertEquals("anna@example.com", participant.email)
   }
 

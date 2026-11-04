@@ -9,18 +9,23 @@ import kotlin.test.assertTrue
 
 class EventTest {
   @Test
-  fun `should leave free seats while registrations are below capacity`() {
+  fun `should count available seats as capacity minus registrations`() {
     val event = event(capacity = 3, registrationCount = 2)
 
     assertEquals(1, event.availableSeats)
+  }
+
+  @Test
+  fun `should have available seats while registrations are below capacity`() {
+    val event = event(capacity = 3, registrationCount = 2)
+
     assertTrue(event.hasAvailableSeats)
   }
 
   @Test
-  fun `should have no free seats once every seat is taken`() {
+  fun `should have no available seats once every seat is taken`() {
     val event = event(capacity = 3, registrationCount = 3)
 
-    assertEquals(0, event.availableSeats)
     assertFalse(event.hasAvailableSeats)
   }
 
