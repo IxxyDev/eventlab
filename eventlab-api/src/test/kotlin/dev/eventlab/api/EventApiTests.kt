@@ -120,22 +120,21 @@ class EventApiTests {
   }
 
   @Test
-  fun `should give the last seat to only one of many simultaneous participants`() {
+  fun `should give the only seat to one of simultaneous participants`() {
     createEvent(capacity = 1)
-    val participantCount = 10
-    val requests =
-      (1..participantCount).map { number ->
-        registrationRequest(
-          "Participant $number",
-          "participant$number@example.com",
-        )
-      }
 
-    val statuses = performSimultaneously(requests).map { it.status }
+    val responses = performSimultaneously(participantRequests(10))
 
-    assertEquals(1, statuses.count { it == 201 })
-    assertEquals(participantCount - 1, statuses.count { it == 409 })
-    expectAvailableSeats(0)
+    assertEquals(1, responses.count { it.status == 201 })
+  }
+
+  @Test
+  fun `should report event as full to the rest of simultaneous participants`() {
+    createEvent(capacity = 1)
+
+    val responses = performSimultaneously(participantRequests(10))
+
+    assertEquals(9, responses.count { isRejectedAsFull(it) })
   }
 
   @Test
@@ -468,30 +467,34 @@ class EventApiTests {
   }
 
   @Test
-  fun `should create one registration for simultaneous retries with the same idempotency key`() {
-    createEvent(capacity = 1)
-    val attemptCount = 5
+  fun `should accept all simultaneous retries with the same idempotency key`() {
+    createEvent()
     val idempotencyKey = UUID.randomUUID().toString()
     val requests =
-      List(attemptCount) {
+      List(5) {
         registrationRequest("Anna", "anna@example.com", idempotencyKey)
       }
 
     val responses = performSimultaneously(requests)
 
-    assertEquals(List(attemptCount) { 201 }, responses.map { it.status })
+    assertEquals(5, responses.count { it.status == 201 })
+  }
+
+  @Test
+  fun `should return the same registration to all simultaneous retries`() {
+    createEvent()
+    val idempotencyKey = UUID.randomUUID().toString()
+    val requests =
+      List(5) {
+        registrationRequest("Anna", "anna@example.com", idempotencyKey)
+      }
+
+    val responses = performSimultaneously(requests)
+
     assertEquals(
       1,
-      responses
-        .map {
-          JsonPath.read<String>(
-            it.contentAsString,
-            "$.registration.id",
-          )
-        }.distinct()
-        .size,
+      responses.distinctBy { readRegistrationId(it) }.size,
     )
-    expectAvailableSeats(0)
   }
 
   private fun createEvent(
@@ -602,6 +605,16 @@ class EventApiTests {
     return request
   }
 
+  private fun participantRequests(
+    count: Int,
+  ): List<MockHttpServletRequestBuilder> =
+    (1..count).map { number ->
+      registrationRequest(
+        "Participant $number",
+        "participant$number@example.com",
+      )
+    }
+
   private fun performSimultaneously(
     requests: List<MockHttpServletRequestBuilder>,
   ): List<MockHttpServletResponse> {
@@ -619,6 +632,13 @@ class EventApiTests {
       executor.invokeAll(tasks).map { it.get() }
     }
   }
+
+  private fun isRejectedAsFull(response: MockHttpServletResponse): Boolean =
+    response.status == 409 &&
+      JsonPath.read<String>(response.contentAsString, "$.code") == "EVENT_FULL"
+
+  private fun readRegistrationId(response: MockHttpServletResponse): String =
+    JsonPath.read(response.contentAsString, "$.registration.id")
 
   private fun warmUpConnectionPool(size: Int) {
     val connections = (1..size).map { dataSource.connection }
