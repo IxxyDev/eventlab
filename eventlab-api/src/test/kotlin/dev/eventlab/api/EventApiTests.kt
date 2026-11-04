@@ -228,11 +228,9 @@ class EventApiTests {
   fun `should cancel registration`() {
     createEvent()
     val registration = createRegistration()
-    val cancelRequest =
-      delete("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${registration.accessToken}")
 
-    val cancellationResult = mvc.perform(cancelRequest)
+    val cancellationResult =
+      cancelRegistration(registration.id, registration.accessToken)
 
     cancellationResult
       .andExpect(status().isNoContent())
@@ -242,11 +240,8 @@ class EventApiTests {
   fun `should release a seat on cancellation`() {
     createEvent(capacity = 1)
     val registration = createRegistration()
-    val cancelRequest =
-      delete("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${registration.accessToken}")
 
-    mvc.perform(cancelRequest)
+    cancelRegistration(registration.id, registration.accessToken)
     val eventResult = mvc.perform(get("/api/event"))
 
     eventResult
@@ -258,11 +253,9 @@ class EventApiTests {
     createEvent()
     val registration = createRegistration("Anna", "anna@example.com")
     val anotherRegistration = createRegistration("Boris", "boris@example.com")
-    val cancelRequest =
-      delete("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
 
-    val cancellationResult = mvc.perform(cancelRequest)
+    val cancellationResult =
+      cancelRegistration(registration.id, anotherRegistration.accessToken)
 
     cancellationResult
       .andExpect(status().isNotFound())
@@ -273,11 +266,8 @@ class EventApiTests {
     createEvent(capacity = 2)
     val registration = createRegistration("Anna", "anna@example.com")
     val anotherRegistration = createRegistration("Boris", "boris@example.com")
-    val cancelRequest =
-      delete("/api/registrations/{id}", registration.id)
-        .header("Authorization", "Bearer ${anotherRegistration.accessToken}")
 
-    mvc.perform(cancelRequest)
+    cancelRegistration(registration.id, anotherRegistration.accessToken)
     val eventResult = mvc.perform(get("/api/event"))
 
     eventResult
@@ -604,6 +594,15 @@ class EventApiTests {
   private fun register(idempotencyKey: String): ResultActions =
     mvc.perform(
       registrationRequest("Anna", "anna@example.com", idempotencyKey),
+    )
+
+  private fun cancelRegistration(
+    id: String,
+    accessToken: String,
+  ): ResultActions =
+    mvc.perform(
+      delete("/api/registrations/{id}", id)
+        .header("Authorization", "Bearer $accessToken"),
     )
 
   private fun registrationRequest(
