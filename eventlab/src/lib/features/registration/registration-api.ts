@@ -9,14 +9,17 @@ export async function createRegistration(
   request: RegistrationRequest,
   idempotencyKey: string,
 ): Promise<RegistrationCreatedResponse> {
-  const response = await fetch(`${apiBaseUrl}/api/event/registrations`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
+  const response = await fetch(
+    `${apiBaseUrl}/api/events/sound-workshop/registrations`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
+  );
   await ensureSuccess(response);
 
   return response.json();

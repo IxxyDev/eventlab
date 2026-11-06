@@ -5,6 +5,7 @@ import java.time.ZoneId
 
 data class Event(
   val id: String,
+  val organizationName: String,
   val title: String,
   val description: String,
   val startsAt: Instant,

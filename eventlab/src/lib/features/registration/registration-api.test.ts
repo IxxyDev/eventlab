@@ -34,7 +34,7 @@ describe("event API client", () => {
 
     expect(fetchMock.mock.calls).toEqual([
       [
-        "http://localhost:8080/api/event/registrations",
+        "http://localhost:8080/api/events/sound-workshop/registrations",
         {
           method: "POST",
           headers: {

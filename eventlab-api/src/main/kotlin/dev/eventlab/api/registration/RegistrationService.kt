@@ -1,6 +1,5 @@
 package dev.eventlab.api.registration
 
-import dev.eventlab.api.event.EVENT_ID
 import dev.eventlab.api.event.Event
 import dev.eventlab.api.event.EventRepository
 import org.springframework.stereotype.Service
@@ -21,26 +20,21 @@ class RegistrationService(
   private val secureRandom = SecureRandom()
 
   fun register(
+    eventId: String,
     participant: Participant,
-    idempotencyKey: String?,
-  ): RegistrationWithAccessToken {
-    if (idempotencyKey != null && parseUuid(idempotencyKey) == null) {
-      throw RegistrationValidationException(
-        RegistrationErrorCode.INVALID_IDEMPOTENCY_KEY,
-      )
-    }
-
-    val idempotencyKeyHash = idempotencyKey?.let { sha256(it) }
+    idempotencyKey: UUID?,
+  ): RegistrationWithAccessToken? {
+    val idempotencyKeyHash = idempotencyKey?.let { sha256(it.toString()) }
 
     return transactionTemplate.execute {
-      val event = eventRepository.lockById(EVENT_ID)
+      val event = eventRepository.lockById(eventId) ?: return@execute null
       val previous =
         idempotencyKeyHash?.let {
           registrationRepository.findByIdempotencyKeyHash(it)
         }
 
       if (previous != null) {
-        retryRegistration(previous, participant)
+        retryRegistration(event, previous, participant)
       } else {
         createRegistration(event, participant, idempotencyKeyHash)
       }
@@ -48,12 +42,12 @@ class RegistrationService(
   }
 
   fun getRegistration(
-    id: String,
+    id: UUID,
     token: String?,
   ): Registration? = findAccessibleRegistration(id, token)
 
   fun cancelRegistration(
-    id: String,
+    id: UUID,
     token: String?,
   ): Boolean {
     val registration =
@@ -64,11 +58,13 @@ class RegistrationService(
   }
 
   private fun retryRegistration(
+    event: Event,
     previous: Registration,
     participant: Participant,
   ): RegistrationWithAccessToken {
     if (previous.name != participant.name ||
-      previous.email != participant.email
+      previous.email != participant.email ||
+      previous.eventId != event.id
     ) {
       throw IdempotencyKeyReusedException()
     }
@@ -133,11 +129,10 @@ class RegistrationService(
   }
 
   private fun findAccessibleRegistration(
-    id: String,
+    id: UUID,
     token: String?,
   ): Registration? {
-    val registrationId = parseUuid(id) ?: return null
-    val registration = registrationRepository.findById(registrationId)
+    val registration = registrationRepository.findById(id)
 
     if (registration == null || token.isNullOrEmpty()) {
       return null
@@ -170,11 +165,4 @@ class RegistrationService(
     MessageDigest
       .getInstance("SHA-256")
       .digest(value.toByteArray(Charsets.UTF_8))
-
-  private fun parseUuid(value: String): UUID? =
-    try {
-      UUID.fromString(value)
-    } catch (e: IllegalArgumentException) {
-      null
-    }
 }

@@ -12,8 +12,8 @@ const access = { id: "registration-1", accessToken: "token-1" };
 
 describe("RegistrationState", () => {
   describe("register", () => {
-    it("should remember the registration the server accepted", async () => {
-      const { state, api, accessStore, event } = createState();
+    it("should trim the name and email before sending", async () => {
+      const { state, api } = createState();
 
       await state.register({
         name: "  Анна ",
@@ -21,8 +21,29 @@ describe("RegistrationState", () => {
       });
 
       expect(api.createRegistration.mock.calls[0][0]).toEqual(request);
+    });
+
+    it("should remember the registration the server accepted", async () => {
+      const { state } = createState();
+
+      await state.register(request);
+
       expect(state.registration).toEqual(registration);
+    });
+
+    it("should save the access the server issued", async () => {
+      const { state, accessStore } = createState();
+
+      await state.register(request);
+
       expect(accessStore.saveRegistrationAccess.mock.calls).toEqual([[access]]);
+    });
+
+    it("should reload the event after registration", async () => {
+      const { state, event } = createState();
+
+      await state.register(request);
+
       expect(event.load.mock.calls).toEqual([[]]);
     });
 
@@ -89,8 +110,8 @@ describe("RegistrationState", () => {
   });
 
   describe("cancel", () => {
-    it("should forget the registration after cancelling", async () => {
-      const { state, api, accessStore, event } = createState(access);
+    it("should cancel with the saved access", async () => {
+      const { state, api } = createState(access);
       await state.restore();
 
       await state.cancel();
@@ -98,9 +119,41 @@ describe("RegistrationState", () => {
       expect(api.cancelRegistration.mock.calls).toEqual([
         ["registration-1", "token-1"],
       ]);
+    });
+
+    it("should forget the registration after cancelling", async () => {
+      const { state } = createState(access);
+      await state.restore();
+
+      await state.cancel();
+
       expect(state.registration).toEqual(null);
+    });
+
+    it("should notify about the cancellation", async () => {
+      const { state } = createState(access);
+      await state.restore();
+
+      await state.cancel();
+
       expect(state.cancelNotice).toEqual("Регистрация отменена.");
+    });
+
+    it("should clear the saved access after cancelling", async () => {
+      const { state, accessStore } = createState(access);
+      await state.restore();
+
+      await state.cancel();
+
       expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+    });
+
+    it("should reload the event after cancelling", async () => {
+      const { state, event } = createState(access);
+      await state.restore();
+
+      await state.cancel();
+
       expect(event.load.mock.calls).toEqual([[]]);
     });
 
@@ -150,18 +203,33 @@ describe("RegistrationState", () => {
       expect(state.restoreState).toEqual({ status: "ready" });
     });
 
-    it("should drop a saved registration the server no longer has", async () => {
+    it("should clear a saved key the server no longer accepts", async () => {
       const { state, api, accessStore } = createState(access);
       api.getRegistration.mockRejectedValueOnce(new HttpError(404));
 
       await state.restore();
 
-      expect(state.registration).toEqual(null);
       expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+    });
+
+    it("should warn about a saved registration the server no longer has", async () => {
+      const { state, api } = createState(access);
+      api.getRegistration.mockRejectedValueOnce(new HttpError(404));
+
+      await state.restore();
+
       expect(state.storageWarning).toEqual(
         "Сохранённая заявка недоступна: " +
           "она отсутствует или ключ больше не подходит.",
       );
+    });
+
+    it("should finish restoring when the server no longer has the registration", async () => {
+      const { state, api } = createState(access);
+      api.getRegistration.mockRejectedValueOnce(new HttpError(404));
+
+      await state.restore();
+
       expect(state.restoreState).toEqual({ status: "ready" });
     });
 
@@ -179,6 +247,41 @@ describe("RegistrationState", () => {
           "Не удалось восстановить регистрацию. Сохраненный ключ не удален.",
       });
       expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([]);
+    });
+
+    it("should finish restoring when the saved access cannot be read", async () => {
+      const { state } = createStateWithUnreadableAccess();
+
+      await state.restore();
+
+      expect(state.restoreState).toEqual({ status: "ready" });
+    });
+
+    it("should warn when the saved access cannot be read", async () => {
+      const { state } = createStateWithUnreadableAccess();
+
+      await state.restore();
+
+      expect(state.storageWarning).toEqual(
+        "Не удалось прочитать сохранённую заявку. " +
+          "Если вы не записывались, это предупреждение можно не учитывать.",
+      );
+    });
+
+    it("should clear the saved access that cannot be read", async () => {
+      const { state, accessStore } = createStateWithUnreadableAccess();
+
+      await state.restore();
+
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+    });
+
+    it("should finish restoring when the storage is blocked", async () => {
+      const { state } = createStateWithBlockedStorage();
+
+      await state.restore();
+
+      expect(state.restoreState).toEqual({ status: "ready" });
     });
   });
 });
@@ -208,4 +311,22 @@ function createState(saved: RegistrationAccess | null = null) {
   const state = new RegistrationState({ api, accessStore, event });
 
   return { state, api, accessStore, event };
+}
+
+function createStateWithUnreadableAccess() {
+  const created = createState();
+  created.accessStore.readRegistrationAccess.mockImplementation(() => {
+    throw new Error("Saved registration access cannot be read");
+  });
+
+  return created;
+}
+
+function createStateWithBlockedStorage() {
+  const created = createStateWithUnreadableAccess();
+  created.accessStore.clearRegistrationAccess.mockImplementation(() => {
+    throw new DOMException("Storage is blocked", "SecurityError");
+  });
+
+  return created;
 }
