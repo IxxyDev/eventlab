@@ -34,7 +34,7 @@ class RegistrationService(
         }
 
       if (previous != null) {
-        retryRegistration(previous, participant)
+        retryRegistration(event, previous, participant)
       } else {
         createRegistration(event, participant, idempotencyKeyHash)
       }
@@ -58,11 +58,13 @@ class RegistrationService(
   }
 
   private fun retryRegistration(
+    event: Event,
     previous: Registration,
     participant: Participant,
   ): RegistrationWithAccessToken {
     if (previous.name != participant.name ||
-      previous.email != participant.email
+      previous.email != participant.email ||
+      previous.eventId != event.id
     ) {
       throw IdempotencyKeyReusedException()
     }
