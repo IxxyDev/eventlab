@@ -248,6 +248,14 @@ describe("RegistrationState", () => {
       });
       expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([]);
     });
+
+    it("should finish restoring when the saved access cannot be read", async () => {
+      const { state } = createStateWithUnreadableAccess();
+
+      await state.restore();
+
+      expect(state.restoreState).toEqual({ status: "ready" });
+    });
   });
 });
 
@@ -276,4 +284,13 @@ function createState(saved: RegistrationAccess | null = null) {
   const state = new RegistrationState({ api, accessStore, event });
 
   return { state, api, accessStore, event };
+}
+
+function createStateWithUnreadableAccess() {
+  const created = createState();
+  created.accessStore.readRegistrationAccess.mockImplementation(() => {
+    throw new Error("Saved registration access cannot be read");
+  });
+
+  return created;
 }
