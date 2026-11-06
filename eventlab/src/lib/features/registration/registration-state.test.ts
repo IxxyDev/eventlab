@@ -275,6 +275,14 @@ describe("RegistrationState", () => {
 
       expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
     });
+
+    it("should finish restoring when the storage is blocked", async () => {
+      const { state } = createStateWithBlockedStorage();
+
+      await state.restore();
+
+      expect(state.restoreState).toEqual({ status: "ready" });
+    });
   });
 });
 
@@ -309,6 +317,15 @@ function createStateWithUnreadableAccess() {
   const created = createState();
   created.accessStore.readRegistrationAccess.mockImplementation(() => {
     throw new Error("Saved registration access cannot be read");
+  });
+
+  return created;
+}
+
+function createStateWithBlockedStorage() {
+  const created = createStateWithUnreadableAccess();
+  created.accessStore.clearRegistrationAccess.mockImplementation(() => {
+    throw new DOMException("Storage is blocked", "SecurityError");
   });
 
   return created;

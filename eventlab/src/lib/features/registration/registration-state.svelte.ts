@@ -223,7 +223,20 @@ export class RegistrationState {
     try {
       return this.#accessStore.readRegistrationAccess();
     } catch {
+      this.storageWarning =
+        "Не удалось прочитать сохранённую заявку. " +
+        "Если вы не записывались, это предупреждение можно не учитывать.";
+      this.#clearUnreadableAccess();
+
       return null;
+    }
+  }
+
+  #clearUnreadableAccess(): void {
+    try {
+      this.#accessStore.clearRegistrationAccess();
+    } catch {
+      // Blocked storage forbids clearing too; the warning is already set.
     }
   }
 }
