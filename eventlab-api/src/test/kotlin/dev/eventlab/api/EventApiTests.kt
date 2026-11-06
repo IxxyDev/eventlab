@@ -189,7 +189,23 @@ class EventApiTests {
 
   @Test
   fun `should return 404 for nonexistent registration`() {
-    val result = readRegistration("missing-registration", "some-token")
+    val result =
+      readRegistration(
+        "9c55e2a7-3f6c-4b9e-8a41-0d7f2b1c6e30",
+        "q7Vd2LxN9tRb4KsY1mPz8WcF3hJg6TaE0uQoXi5nDwM",
+      )
+
+    result
+      .andExpect(status().isNotFound())
+  }
+
+  @Test
+  fun `should return 404 for malformed registration id`() {
+    val result =
+      readRegistration(
+        "not-a-uuid",
+        "q7Vd2LxN9tRb4KsY1mPz8WcF3hJg6TaE0uQoXi5nDwM",
+      )
 
     result
       .andExpect(status().isNotFound())
