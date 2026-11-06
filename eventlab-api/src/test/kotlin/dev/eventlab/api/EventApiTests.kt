@@ -109,6 +109,21 @@ class EventApiTests {
   }
 
   @Test
+  fun `should return 404 for registration on nonexistent event`() {
+    val registrationResult =
+      mvc.perform(
+        registrationRequest(
+          "Anna",
+          "anna@example.com",
+          eventId = "missing-event",
+        ),
+      )
+
+    registrationResult
+      .andExpect(status().isNotFound())
+  }
+
+  @Test
   fun `should reject duplicate email regardless of case`() {
     createEvent(capacity = 2)
     createRegistration("Anna", "anna@example.com")
