@@ -94,6 +94,19 @@ class EventApiTests {
   }
 
   @Test
+  fun `should occupy a seat of the chosen event on registration`() {
+    createEvent(id = "stage-lighting", capacity = 1)
+
+    mvc.perform(
+      post("/api/events/{eventId}/registrations", "stage-lighting")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("""{"name": "Anna", "email": "anna@example.com"}"""),
+    )
+
+    expectAvailableSeats(0, "stage-lighting")
+  }
+
+  @Test
   fun `should reject duplicate email regardless of case`() {
     createEvent(capacity = 2)
     createRegistration("Anna", "anna@example.com")
@@ -661,9 +674,12 @@ class EventApiTests {
     connections.forEach { it.close() }
   }
 
-  private fun expectAvailableSeats(count: Int) {
+  private fun expectAvailableSeats(
+    count: Int,
+    eventId: String = EVENT_ID,
+  ) {
     mvc
-      .perform(get("/api/event"))
+      .perform(get("/api/events/{id}", eventId))
       .andExpect(jsonPath("$.availableSeats").value(count))
   }
 }
