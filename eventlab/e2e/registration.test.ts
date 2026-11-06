@@ -1,11 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import type { RegistrationCreatedResponse } from "../src/lib/features/registration/types.ts";
-
-const storageKey = "eventlab:registration-access:sound-workshop";
+import { resetDatabase } from "./reset-database.ts";
 
 async function fillRegistration(page: Page): Promise<string> {
   const email = `e2e-${crypto.randomUUID()}@example.com`;
+  
   await page.getByRole("textbox", { name: "Имя" }).fill("Анна");
   await page.getByRole("textbox", { name: "Email" }).fill(email);
 
@@ -23,21 +23,7 @@ async function register(page: Page): Promise<string> {
   return email;
 }
 
-test.afterEach(async ({ page, request }) => {
-  const saved = await page.evaluate(
-    (key) => localStorage.getItem(key),
-    storageKey,
-  );
-
-  if (saved === null) {
-    return;
-  }
-
-  const access: { id: string; accessToken: string } = JSON.parse(saved);
-  await request.delete(`http://localhost:8080/api/registrations/${access.id}`, {
-    headers: { Authorization: `Bearer ${access.accessToken}` },
-  });
-});
+test.beforeEach(resetDatabase);
 
 test("should restore the registration after reload", async ({ page }) => {
   const email = await register(page);

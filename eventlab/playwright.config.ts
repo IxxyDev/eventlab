@@ -2,7 +2,6 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "e2e",
-  globalSetup: "./e2e/global-setup.ts",
   reporter: [["list"], ["html", { open: "never" }]],
   workers: 1,
   forbidOnly: !!process.env.CI,
