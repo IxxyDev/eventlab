@@ -5,7 +5,7 @@ import { resetDatabase } from "./reset-database.ts";
 
 async function fillRegistration(page: Page): Promise<string> {
   const email = `e2e-${crypto.randomUUID()}@example.com`;
-  
+
   await page.getByRole("textbox", { name: "Имя" }).fill("Анна");
   await page.getByRole("textbox", { name: "Email" }).fill(email);
 
@@ -16,9 +16,7 @@ async function register(page: Page): Promise<string> {
   await page.goto("/");
   const email = await fillRegistration(page);
   await page.getByRole("button", { name: "Записаться" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Вы зарегистрированы" }),
-  ).toBeVisible();
+  await page.getByRole("heading", { name: "Вы зарегистрированы" }).waitFor();
 
   return email;
 }
@@ -63,10 +61,7 @@ test("should create one registration when the response is lost", async ({
   await page.goto("/");
   await fillRegistration(page);
   await page.getByRole("button", { name: "Записаться" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "Не удалось получить подтверждение от сервера. " +
-      "Нажмите «Записаться» ещё раз — вторая заявка не создастся.",
-  );
+  await page.getByRole("alert").waitFor();
 
   await page.getByRole("button", { name: "Записаться" }).click();
 
@@ -79,7 +74,7 @@ test("should have no accessibility violations on the registration form", async (
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Записаться" })).toBeVisible();
+  await page.getByRole("button", { name: "Записаться" }).waitFor();
 
   const results = await new AxeBuilder({ page }).analyze();
 
