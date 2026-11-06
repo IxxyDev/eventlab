@@ -181,7 +181,7 @@ export class RegistrationState {
     this.restoreState = { status: "loading" };
 
     try {
-      const access = this.#accessStore.readRegistrationAccess();
+      const access = this.#readSavedAccess();
 
       if (access === null) {
         this.restoreState = { status: "ready" };
@@ -216,6 +216,14 @@ export class RegistrationState {
         message:
           "Не удалось восстановить регистрацию. Сохраненный ключ не удален.",
       };
+    }
+  }
+
+  #readSavedAccess(): RegistrationAccess | null {
+    try {
+      return this.#accessStore.readRegistrationAccess();
+    } catch {
+      return null;
     }
   }
 }
