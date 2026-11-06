@@ -499,6 +499,29 @@ class EventApiTests {
   }
 
   @Test
+  fun `should reject idempotency key reused for another event`() {
+    createEvent(id = "sound-workshop")
+    createEvent(id = "stage-lighting")
+    createRegistration(
+      idempotencyKey = "3f6c2b9e-8a41-4d7f-9c55-0e2a7b1d4f60",
+    )
+
+    val reuseResult =
+      mvc.perform(
+        registrationRequest(
+          "Anna",
+          "anna@example.com",
+          "3f6c2b9e-8a41-4d7f-9c55-0e2a7b1d4f60",
+          "stage-lighting",
+        ),
+      )
+
+    reuseResult
+      .andExpect(status().isUnprocessableContent())
+      .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"))
+  }
+
+  @Test
   fun `should reject malformed idempotency key`() {
     createEvent()
 
