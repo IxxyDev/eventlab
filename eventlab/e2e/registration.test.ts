@@ -47,17 +47,20 @@ test("should create one registration when the response is lost", async ({
   page,
 }) => {
   let lostRegistrationId: string | null = null;
-  await page.route("**/api/event/registrations", async (route) => {
-    if (route.request().method() !== "POST" || lostRegistrationId !== null) {
-      await route.fallback();
-      return;
-    }
+  await page.route(
+    "**/api/events/sound-workshop/registrations",
+    async (route) => {
+      if (route.request().method() !== "POST" || lostRegistrationId !== null) {
+        await route.fallback();
+        return;
+      }
 
-    const response = await route.fetch();
-    const created: RegistrationCreatedResponse = await response.json();
-    lostRegistrationId = created.registration.id;
-    await route.abort("connectionreset");
-  });
+      const response = await route.fetch();
+      const created: RegistrationCreatedResponse = await response.json();
+      lostRegistrationId = created.registration.id;
+      await route.abort("connectionreset");
+    },
+  );
   await page.goto("/");
   await fillRegistration(page);
   await page.getByRole("button", { name: "Записаться" }).click();

@@ -1,6 +1,5 @@
 package dev.eventlab.api.registration
 
-import dev.eventlab.api.event.EVENT_ID
 import dev.eventlab.api.event.Event
 import dev.eventlab.api.event.EventRepository
 import org.springframework.stereotype.Service
@@ -21,13 +20,14 @@ class RegistrationService(
   private val secureRandom = SecureRandom()
 
   fun register(
+    eventId: String,
     participant: Participant,
     idempotencyKey: UUID?,
   ): RegistrationWithAccessToken {
     val idempotencyKeyHash = idempotencyKey?.let { sha256(it.toString()) }
 
     return transactionTemplate.execute {
-      val event = eventRepository.lockById(EVENT_ID)
+      val event = eventRepository.lockById(eventId)
       val previous =
         idempotencyKeyHash?.let {
           registrationRepository.findByIdempotencyKeyHash(it)

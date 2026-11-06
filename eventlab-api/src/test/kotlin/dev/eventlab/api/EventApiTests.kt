@@ -98,9 +98,11 @@ class EventApiTests {
     createEvent(id = "stage-lighting", capacity = 1)
 
     mvc.perform(
-      post("/api/events/{eventId}/registrations", "stage-lighting")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content("""{"name": "Anna", "email": "anna@example.com"}"""),
+      registrationRequest(
+        "Anna",
+        "anna@example.com",
+        eventId = "stage-lighting",
+      ),
     )
 
     expectAvailableSeats(0, "stage-lighting")
@@ -621,9 +623,10 @@ class EventApiTests {
     name: String,
     email: String,
     idempotencyKey: String? = null,
+    eventId: String = EVENT_ID,
   ): MockHttpServletRequestBuilder {
     val request =
-      post("/api/event/registrations")
+      post("/api/events/{eventId}/registrations", eventId)
         .contentType(MediaType.APPLICATION_JSON)
         .content("""{"name": "$name", "email": "$email"}""")
 

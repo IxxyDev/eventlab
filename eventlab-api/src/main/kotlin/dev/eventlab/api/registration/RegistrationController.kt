@@ -18,9 +18,10 @@ import java.util.UUID
 class RegistrationController(
   private val registrationService: RegistrationService,
 ) {
-  @PostMapping("/api/event/registrations")
+  @PostMapping("/api/events/{eventId}/registrations")
   @ResponseStatus(HttpStatus.CREATED)
   fun register(
+    @PathVariable("eventId") eventId: String,
     @RequestBody request: RegistrationRequest,
     @RequestHeader(
       value = "Idempotency-Key",
@@ -31,7 +32,7 @@ class RegistrationController(
     val idempotencyKey = parseIdempotencyKey(idempotencyKeyHeader)
 
     return registrationService
-      .register(participant, idempotencyKey)
+      .register(eventId, participant, idempotencyKey)
       .toResponse()
   }
 
