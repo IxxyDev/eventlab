@@ -10,7 +10,7 @@ import * as registrationApi from "#lib/features/registration/registration-api.ts
 import { RegistrationState } from "#lib/features/registration/registration-state.svelte.ts";
 
 const eventState = new EventState(getEvent);
-const registrationState = new RegistrationState({
+const registrationState = new RegistrationState("sound-workshop", {
   api: registrationApi,
   accessStore: registrationAccess,
   event: eventState,

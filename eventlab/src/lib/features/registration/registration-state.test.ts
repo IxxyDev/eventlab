@@ -20,7 +20,17 @@ describe("RegistrationState", () => {
         email: " anna@example.com  ",
       });
 
-      expect(api.createRegistration.mock.calls[0][0]).toEqual(request);
+      const [[, sentRequest]] = api.createRegistration.mock.calls;
+      expect(sentRequest).toEqual({ name: "Анна", email: "anna@example.com" });
+    });
+
+    it("should register for the event it was created with", async () => {
+      const { state, api } = createStateWithEventId("stage-lighting");
+
+      await state.register(request);
+
+      const [[eventId]] = api.createRegistration.mock.calls;
+      expect(eventId).toEqual("stage-lighting");
     });
 
     it("should remember the registration the server accepted", async () => {
@@ -71,8 +81,9 @@ describe("RegistrationState", () => {
 
       await state.register(request);
 
-      const [first, second] = api.createRegistration.mock.calls;
-      expect(second[1]).toEqual(first[1]);
+      const [[, , firstKey], [, , secondKey]] =
+        api.createRegistration.mock.calls;
+      expect(secondKey).toEqual(firstKey);
       expect(state.registration).toEqual(registration);
     });
 
@@ -286,7 +297,10 @@ describe("RegistrationState", () => {
   });
 });
 
-function createState(saved: RegistrationAccess | null = null) {
+function createState(
+  saved: RegistrationAccess | null = null,
+  eventId = "sound-workshop",
+) {
   const api = {
     createRegistration: vi.fn<RegistrationApi["createRegistration"]>(
       async () => ({ registration, accessToken: access.accessToken }),
@@ -308,9 +322,13 @@ function createState(saved: RegistrationAccess | null = null) {
     markRegistrationClosed: vi.fn(),
     markSoldOut: vi.fn(),
   };
-  const state = new RegistrationState({ api, accessStore, event });
+  const state = new RegistrationState(eventId, { api, accessStore, event });
 
   return { state, api, accessStore, event };
+}
+
+function createStateWithEventId(eventId: string) {
+  return createState(null, eventId);
 }
 
 function createStateWithUnreadableAccess() {

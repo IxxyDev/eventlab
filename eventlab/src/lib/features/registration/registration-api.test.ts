@@ -27,14 +27,14 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 describe("event API client", () => {
-  it("should send the registration as JSON with the idempotency key", async () => {
+  it("should send the registration to the given event as JSON with the idempotency key", async () => {
     const fetchMock = stubFetch(jsonResponse(201, created));
 
-    const result = await createRegistration(request, "key-1");
+    const result = await createRegistration("stage-lighting", request, "key-1");
 
     expect(fetchMock.mock.calls).toEqual([
       [
-        "http://localhost:8080/api/events/sound-workshop/registrations",
+        "http://localhost:8080/api/events/stage-lighting/registrations",
         {
           method: "POST",
           headers: {
@@ -99,7 +99,7 @@ describe("event API client", () => {
     async ({ response, error }) => {
       stubFetch(response);
 
-      const sending = createRegistration(request, "key-1");
+      const sending = createRegistration("sound-workshop", request, "key-1");
 
       await expect(sending).rejects.toEqual(error);
     },
@@ -109,7 +109,7 @@ describe("event API client", () => {
     const failure = new TypeError("Failed to fetch");
     vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(failure));
 
-    const sending = createRegistration(request, "key-1");
+    const sending = createRegistration("sound-workshop", request, "key-1");
 
     await expect(sending).rejects.toEqual(failure);
   });

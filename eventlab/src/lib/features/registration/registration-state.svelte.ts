@@ -17,6 +17,7 @@ import type {
 
 export type RegistrationApi = {
   createRegistration(
+    eventId: string,
     request: RegistrationRequest,
     idempotencyKey: string,
   ): Promise<RegistrationCreatedResponse>;
@@ -54,15 +55,20 @@ export class RegistrationState {
   #access: RegistrationAccess | null = null;
   #pendingAttempt: RegistrationAttempt | null = null;
 
+  readonly #eventId: string;
   readonly #api: RegistrationApi;
   readonly #accessStore: RegistrationAccessStore;
   readonly #event: DisplayedEvent;
 
-  constructor(dependencies: {
-    api: RegistrationApi;
-    accessStore: RegistrationAccessStore;
-    event: DisplayedEvent;
-  }) {
+  constructor(
+    eventId: string,
+    dependencies: {
+      api: RegistrationApi;
+      accessStore: RegistrationAccessStore;
+      event: DisplayedEvent;
+    },
+  ) {
+    this.#eventId = eventId;
     this.#api = dependencies.api;
     this.#accessStore = dependencies.accessStore;
     this.#event = dependencies.event;
@@ -90,6 +96,7 @@ export class RegistrationState {
 
     try {
       const result = await this.#api.createRegistration(
+        this.#eventId,
         attempt.request,
         attempt.idempotencyKey,
       );
