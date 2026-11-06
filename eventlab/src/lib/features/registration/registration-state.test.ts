@@ -256,6 +256,25 @@ describe("RegistrationState", () => {
 
       expect(state.restoreState).toEqual({ status: "ready" });
     });
+
+    it("should warn when the saved access cannot be read", async () => {
+      const { state } = createStateWithUnreadableAccess();
+
+      await state.restore();
+
+      expect(state.storageWarning).toEqual(
+        "Не удалось прочитать сохранённую заявку. " +
+          "Если вы не записывались, это предупреждение можно не учитывать.",
+      );
+    });
+
+    it("should clear the saved access that cannot be read", async () => {
+      const { state, accessStore } = createStateWithUnreadableAccess();
+
+      await state.restore();
+
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+    });
   });
 });
 
