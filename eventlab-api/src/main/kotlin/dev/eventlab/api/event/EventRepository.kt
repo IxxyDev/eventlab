@@ -30,14 +30,14 @@ class EventRepository(
       .query { rs, _ -> rs.toEvent() }
       .list()
 
-  fun lockById(id: String): Event {
+  fun lockById(id: String): Event? {
     jdbcClient
       .sql(lockByIdSql)
       .param("id", id)
       .query(String::class.java)
-      .single()
+      .list()
 
-    return checkNotNull(findById(id))
+    return findById(id)
   }
 
   private fun ResultSet.getInstant(column: String): Instant =

@@ -23,11 +23,11 @@ class RegistrationService(
     eventId: String,
     participant: Participant,
     idempotencyKey: UUID?,
-  ): RegistrationWithAccessToken {
+  ): RegistrationWithAccessToken? {
     val idempotencyKeyHash = idempotencyKey?.let { sha256(it.toString()) }
 
     return transactionTemplate.execute {
-      val event = eventRepository.lockById(eventId)
+      val event = eventRepository.lockById(eventId) ?: return@execute null
       val previous =
         idempotencyKeyHash?.let {
           registrationRepository.findByIdempotencyKeyHash(it)

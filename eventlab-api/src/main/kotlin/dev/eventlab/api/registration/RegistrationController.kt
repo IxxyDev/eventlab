@@ -33,7 +33,8 @@ class RegistrationController(
 
     return registrationService
       .register(eventId, participant, idempotencyKey)
-      .toResponse()
+      ?.toResponse()
+      ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
   }
 
   @GetMapping("/api/registrations/{id}")
