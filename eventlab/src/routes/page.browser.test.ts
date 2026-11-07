@@ -81,7 +81,7 @@ describe("Event page", () => {
   });
 
   it("should offer to recheck the registration when the server cannot be reached", async () => {
-    saveRegistrationAccess(access);
+    saveRegistrationAccess("sound-workshop", access);
     mockFetch(respondWithEvent(), loseResponse);
 
     render(Page);
