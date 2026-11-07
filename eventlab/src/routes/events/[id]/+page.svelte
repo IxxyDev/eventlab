@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, untrack } from "svelte";
 import { getEvent } from "#lib/features/event/event-api.ts";
 import { formatEventSchedule } from "#lib/features/event/event-schedule.ts";
 import { EventState } from "#lib/features/event/event-state.svelte.ts";
@@ -8,9 +8,14 @@ import RegistrationForm from "#lib/features/registration/components/Registration
 import * as registrationAccess from "#lib/features/registration/registration-access.ts";
 import * as registrationApi from "#lib/features/registration/registration-api.ts";
 import { RegistrationState } from "#lib/features/registration/registration-state.svelte.ts";
+import type { PageProps } from "./$types";
 
-const eventState = new EventState(getEvent);
-const registrationState = new RegistrationState("sound-workshop", {
+const { params }: PageProps = $props();
+
+// The state belongs to one event, so it keeps the id the page was opened with.
+const eventId = untrack(() => params.id);
+const eventState = new EventState(() => getEvent(eventId));
+const registrationState = new RegistrationState(eventId, {
   api: registrationApi,
   accessStore: registrationAccess,
   event: eventState,

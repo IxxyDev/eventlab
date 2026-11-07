@@ -15,10 +15,36 @@ describe("Event page", () => {
     localStorage.clear();
   });
 
+  it("should load the event from the address", async () => {
+    const fetchMock = mockFetch(respondWithEvent());
+
+    renderComponent("stage-lighting");
+
+    await expect
+      .poll(() => fetchMock.mock.calls)
+      .toEqual([["http://localhost:8080/api/events/stage-lighting"]]);
+  });
+
+  it("should register for the event from the address", async () => {
+    const fetchMock = mockFetch(
+      respondWithEvent(),
+      respondWithRegistration,
+      keepWaiting,
+    );
+    renderComponent("stage-lighting");
+
+    await registerAnna();
+
+    const [, [address]] = fetchMock.mock.calls;
+    expect(address).toEqual(
+      "http://localhost:8080/api/events/stage-lighting/registrations",
+    );
+  });
+
   it("should say that registration is closed once the event has started", async () => {
     mockFetch(respondWithEvent({ registrationOpen: false }));
 
-    render(Page);
+    renderComponent();
 
     await expect
       .element(page.getByText("Регистрация закрыта: мероприятие уже началось."))
@@ -28,7 +54,7 @@ describe("Event page", () => {
   it("should say that registration is closed when no seats are left", async () => {
     mockFetch(respondWithEvent({ availableSeats: 0 }));
 
-    render(Page);
+    renderComponent();
 
     await expect
       .element(page.getByText("Свободные места закончились. Запись закрыта."))
@@ -38,7 +64,7 @@ describe("Event page", () => {
   it("should offer to try again when the event cannot be loaded", async () => {
     mockFetch(loseResponse);
 
-    render(Page);
+    renderComponent();
 
     await expect
       .element(page.getByRole("button", { name: "Попробовать снова" }))
@@ -47,7 +73,7 @@ describe("Event page", () => {
 
   it("should show the event after trying again", async () => {
     mockFetch(loseResponse, respondWithEvent());
-    render(Page);
+    renderComponent();
 
     await page.getByRole("button", { name: "Попробовать снова" }).click();
 
@@ -60,7 +86,7 @@ describe("Event page", () => {
 
   it("should show that seats are being refreshed after registration", async () => {
     mockFetch(respondWithEvent(), respondWithRegistration, keepWaiting);
-    render(Page);
+    renderComponent();
 
     await registerAnna();
 
@@ -71,7 +97,7 @@ describe("Event page", () => {
 
   it("should offer to refresh seats when the refresh fails", async () => {
     mockFetch(respondWithEvent(), respondWithRegistration, loseResponse);
-    render(Page);
+    renderComponent();
 
     await registerAnna();
 
@@ -84,7 +110,7 @@ describe("Event page", () => {
     saveRegistrationAccess("sound-workshop", access);
     mockFetch(respondWithEvent(), loseResponse);
 
-    render(Page);
+    renderComponent();
 
     await expect
       .element(
@@ -104,6 +130,12 @@ function mockFetch(...responses: RespondToRequest[]) {
   }
 
   vi.stubGlobal("fetch", fetchMock);
+
+  return fetchMock;
+}
+
+function renderComponent(eventId = "sound-workshop") {
+  render(Page, { params: { id: eventId }, data: {} });
 }
 
 function respondWithEvent(

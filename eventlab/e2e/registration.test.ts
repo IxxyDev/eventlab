@@ -13,7 +13,7 @@ async function fillRegistration(page: Page): Promise<string> {
 }
 
 async function register(page: Page): Promise<string> {
-  await page.goto("/");
+  await page.goto("/events/sound-workshop");
   const email = await fillRegistration(page);
   await page.getByRole("button", { name: "Записаться" }).click();
   await page.getByRole("heading", { name: "Вы зарегистрированы" }).waitFor();
@@ -61,7 +61,7 @@ test("should create one registration when the response is lost", async ({
       await route.abort("connectionreset");
     },
   );
-  await page.goto("/");
+  await page.goto("/events/sound-workshop");
   await fillRegistration(page);
   await page.getByRole("button", { name: "Записаться" }).click();
   await page.getByRole("alert").waitFor();
@@ -76,7 +76,7 @@ test("should create one registration when the response is lost", async ({
 test("should have no accessibility violations on the registration form", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/events/sound-workshop");
   await page.getByRole("button", { name: "Записаться" }).waitFor();
 
   const results = await new AxeBuilder({ page }).analyze();
