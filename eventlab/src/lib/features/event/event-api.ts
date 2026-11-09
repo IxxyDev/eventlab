@@ -9,3 +9,12 @@ export async function getEvent(id: string): Promise<EventDetails> {
 
   return response.json();
 }
+
+export async function getEvents(
+  fetch: typeof globalThis.fetch,
+): Promise<EventDetails[]> {
+  const response = await fetch(`${apiBaseUrl}/api/events`);
+  await ensureSuccess(response);
+
+  return response.json();
+}
