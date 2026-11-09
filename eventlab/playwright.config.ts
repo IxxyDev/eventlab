@@ -17,7 +17,7 @@ export default defineConfig({
       env: {
         SPRING_DATASOURCE_URL: "jdbc:postgresql://127.0.0.1:5433/eventlab_e2e",
       },
-      url: "http://localhost:8080/api/event",
+      url: "http://localhost:8080/api/events",
       reuseExistingServer: false,
       timeout: 180_000,
     },

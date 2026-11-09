@@ -12,11 +12,8 @@ import org.springframework.web.server.ResponseStatusException
 class EventController(
   private val eventService: EventService,
 ) {
-  @GetMapping("/api/event")
-  fun getEvent(): EventResponse = getEventById(EVENT_ID)
-
   @GetMapping("/api/events/{id}")
-  fun getEventById(
+  fun getEvent(
     @PathVariable("id") id: String,
   ): EventResponse =
     eventService
