@@ -16,7 +16,7 @@ describe("Event page", () => {
   });
 
   it("should load the event from the address", async () => {
-    const fetchMock = mockFetch(respondWithEvent());
+    const fetchMock = mockFetch(respondWithEvent({ id: "stage-lighting" }));
 
     renderComponent("stage-lighting");
 
@@ -37,7 +37,7 @@ describe("Event page", () => {
 
   it("should register for the event from the address", async () => {
     const fetchMock = mockFetch(
-      respondWithEvent(),
+      respondWithEvent({ id: "stage-lighting" }),
       respondWithRegistration,
       keepWaiting,
     );
@@ -82,7 +82,10 @@ describe("Event page", () => {
   });
 
   it("should show the event after trying again", async () => {
-    mockFetch(loseResponse, respondWithEvent());
+    mockFetch(
+      loseResponse,
+      respondWithEvent({ title: "Как устроен звук на концерте" }),
+    );
     renderComponent();
 
     await page.getByRole("button", { name: "Попробовать снова" }).click();
@@ -120,7 +123,7 @@ describe("Event page", () => {
     saveRegistrationAccess("sound-workshop", access);
     mockFetch(respondWithEvent(), loseResponse);
 
-    renderComponent();
+    renderComponent("sound-workshop");
 
     await expect
       .element(

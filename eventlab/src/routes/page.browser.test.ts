@@ -6,7 +6,12 @@ import Page from "./+page.svelte";
 
 describe("Catalog page", () => {
   it("should link the event to its page", async () => {
-    renderComponent([createEvent()]);
+    renderComponent([
+      createEvent({
+        id: "sound-workshop",
+        title: "Как устроен звук на концерте",
+      }),
+    ]);
 
     await expect
       .element(page.getByRole("link", { name: "Как устроен звук на концерте" }))
@@ -24,10 +29,13 @@ function renderComponent(events: EventDetails[]) {
   render(Page, { params: {}, data: { events } });
 }
 
-function createEvent(): EventDetails {
+function createEvent({
+  id,
+  title,
+}: Pick<EventDetails, "id" | "title">): EventDetails {
   return {
-    id: "sound-workshop",
-    title: "Как устроен звук на концерте",
+    id,
+    title,
     description: "Разберём путь звука от микрофона до колонок.",
     startsAt: "2026-11-14T15:00:00Z",
     endsAt: "2026-11-14T17:00:00Z",
