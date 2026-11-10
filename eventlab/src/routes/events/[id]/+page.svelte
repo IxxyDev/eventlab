@@ -35,6 +35,7 @@ onMount(() => {
 </svelte:head>
 
 <a href={resolve("/")}>Все мероприятия</a>
+
 {#if eventState.loading}
   <p class="notice" role="status">Загружаем мероприятие…</p>
 {:else if eventState.error && !eventState.details}
@@ -48,7 +49,6 @@ onMount(() => {
   </button>
 {:else if eventState.details}
   {@const event = eventState.details}
-  <p class="eyebrow">Открытая лекция и мастер-класс</p>
   <h1>{event.title}</h1>
 
   <div class="description">
@@ -137,11 +137,6 @@ onMount(() => {
 {/if}
 
 <style>
-.eyebrow {
-  color: var(--color-text-muted);
-  font-weight: 600;
-}
-
 h1 {
   margin-block: var(--space-4) var(--space-6);
   font-size: clamp(2rem, 6vw, 3.5rem);
