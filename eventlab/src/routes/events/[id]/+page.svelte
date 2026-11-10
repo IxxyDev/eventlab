@@ -8,6 +8,7 @@ import RegistrationForm from "#lib/features/registration/components/Registration
 import * as registrationAccess from "#lib/features/registration/registration-access.ts";
 import * as registrationApi from "#lib/features/registration/registration-api.ts";
 import { RegistrationState } from "#lib/features/registration/registration-state.svelte.ts";
+import { resolve } from "$app/paths";
 import type { PageProps } from "./$types";
 
 const { params }: PageProps = $props();
@@ -33,6 +34,7 @@ onMount(() => {
   </title>
 </svelte:head>
 
+<a href={resolve("/")}>Все мероприятия</a>
 {#if eventState.loading}
   <p class="notice" role="status">Загружаем мероприятие…</p>
 {:else if eventState.error && !eventState.details}

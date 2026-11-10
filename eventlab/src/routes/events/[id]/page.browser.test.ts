@@ -25,6 +25,16 @@ describe("Event page", () => {
       .toEqual([["http://localhost:8080/api/events/stage-lighting"]]);
   });
 
+  it("should link back to the catalog", async () => {
+    mockFetch(respondWithEvent());
+
+    renderComponent();
+
+    await expect
+      .element(page.getByRole("link", { name: "Все мероприятия" }))
+      .toHaveAttribute("href", "/");
+  });
+
   it("should register for the event from the address", async () => {
     const fetchMock = mockFetch(
       respondWithEvent(),
