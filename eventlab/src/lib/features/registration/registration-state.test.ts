@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { HttpError } from "#lib/shared/api/http.ts";
 import type { RegistrationAccess } from "./registration-access.ts";
 import {
+  type RegistrationAccessStore,
   type RegistrationApi,
   RegistrationState,
 } from "./registration-state.svelte.ts";
@@ -20,7 +21,17 @@ describe("RegistrationState", () => {
         email: " anna@example.com  ",
       });
 
-      expect(api.createRegistration.mock.calls[0][0]).toEqual(request);
+      const [[, sentRequest]] = api.createRegistration.mock.calls;
+      expect(sentRequest).toEqual({ name: "Анна", email: "anna@example.com" });
+    });
+
+    it("should register for the event it was created with", async () => {
+      const { state, api } = createStateWithEventId("stage-lighting");
+
+      await state.register(request);
+
+      const [[eventId]] = api.createRegistration.mock.calls;
+      expect(eventId).toEqual("stage-lighting");
     });
 
     it("should remember the registration the server accepted", async () => {
@@ -31,12 +42,14 @@ describe("RegistrationState", () => {
       expect(state.registration).toEqual(registration);
     });
 
-    it("should save the access the server issued", async () => {
-      const { state, accessStore } = createState();
+    it("should save the issued access for the event it was created with", async () => {
+      const { state, accessStore } = createStateWithEventId("stage-lighting");
 
       await state.register(request);
 
-      expect(accessStore.saveRegistrationAccess.mock.calls).toEqual([[access]]);
+      expect(accessStore.saveRegistrationAccess.mock.calls).toEqual([
+        ["stage-lighting", { id: "registration-1", accessToken: "token-1" }],
+      ]);
     });
 
     it("should reload the event after registration", async () => {
@@ -71,8 +84,9 @@ describe("RegistrationState", () => {
 
       await state.register(request);
 
-      const [first, second] = api.createRegistration.mock.calls;
-      expect(second[1]).toEqual(first[1]);
+      const [[, , firstKey], [, , secondKey]] =
+        api.createRegistration.mock.calls;
+      expect(secondKey).toEqual(firstKey);
       expect(state.registration).toEqual(registration);
     });
 
@@ -139,13 +153,15 @@ describe("RegistrationState", () => {
       expect(state.cancelNotice).toEqual("Регистрация отменена.");
     });
 
-    it("should clear the saved access after cancelling", async () => {
-      const { state, accessStore } = createState(access);
+    it("should clear the saved access of the event it was created with", async () => {
+      const { state, accessStore } = createState(access, "stage-lighting");
       await state.restore();
 
       await state.cancel();
 
-      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([
+        ["stage-lighting"],
+      ]);
     });
 
     it("should reload the event after cancelling", async () => {
@@ -158,7 +174,7 @@ describe("RegistrationState", () => {
     });
 
     it("should forget a registration the server no longer has", async () => {
-      const { state, api, accessStore } = createState(access);
+      const { state, api, accessStore } = createState(access, "sound-workshop");
       api.cancelRegistration.mockRejectedValueOnce(new HttpError(404));
       await state.restore();
 
@@ -169,7 +185,9 @@ describe("RegistrationState", () => {
         "Заявка уже недоступна: возможно, ее отменили раньше. " +
           "Сохраненный ключ удален.",
       );
-      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([
+        ["sound-workshop"],
+      ]);
     });
 
     it("should keep the registration when the response is lost", async () => {
@@ -191,6 +209,16 @@ describe("RegistrationState", () => {
   });
 
   describe("restore", () => {
+    it("should read the saved access of the event it was created with", async () => {
+      const { state, accessStore } = createStateWithEventId("stage-lighting");
+
+      await state.restore();
+
+      expect(accessStore.readRegistrationAccess.mock.calls).toEqual([
+        ["stage-lighting"],
+      ]);
+    });
+
     it("should restore the saved registration", async () => {
       const { state, api } = createState(access);
 
@@ -204,12 +232,14 @@ describe("RegistrationState", () => {
     });
 
     it("should clear a saved key the server no longer accepts", async () => {
-      const { state, api, accessStore } = createState(access);
+      const { state, api, accessStore } = createState(access, "stage-lighting");
       api.getRegistration.mockRejectedValueOnce(new HttpError(404));
 
       await state.restore();
 
-      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([
+        ["stage-lighting"],
+      ]);
     });
 
     it("should warn about a saved registration the server no longer has", async () => {
@@ -269,11 +299,14 @@ describe("RegistrationState", () => {
     });
 
     it("should clear the saved access that cannot be read", async () => {
-      const { state, accessStore } = createStateWithUnreadableAccess();
+      const { state, accessStore } =
+        createStateWithUnreadableAccess("stage-lighting");
 
       await state.restore();
 
-      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([[]]);
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([
+        ["stage-lighting"],
+      ]);
     });
 
     it("should finish restoring when the storage is blocked", async () => {
@@ -286,7 +319,10 @@ describe("RegistrationState", () => {
   });
 });
 
-function createState(saved: RegistrationAccess | null = null) {
+function createState(
+  saved: RegistrationAccess | null = null,
+  eventId = "sound-workshop",
+) {
   const api = {
     createRegistration: vi.fn<RegistrationApi["createRegistration"]>(
       async () => ({ registration, accessToken: access.accessToken }),
@@ -299,22 +335,30 @@ function createState(saved: RegistrationAccess | null = null) {
     ),
   };
   const accessStore = {
-    readRegistrationAccess: vi.fn(() => saved),
-    saveRegistrationAccess: vi.fn<(access: RegistrationAccess) => void>(),
-    clearRegistrationAccess: vi.fn(),
+    readRegistrationAccess: vi.fn<
+      RegistrationAccessStore["readRegistrationAccess"]
+    >(() => saved),
+    saveRegistrationAccess:
+      vi.fn<RegistrationAccessStore["saveRegistrationAccess"]>(),
+    clearRegistrationAccess:
+      vi.fn<RegistrationAccessStore["clearRegistrationAccess"]>(),
   };
   const event = {
     load: vi.fn(async () => {}),
     markRegistrationClosed: vi.fn(),
     markSoldOut: vi.fn(),
   };
-  const state = new RegistrationState({ api, accessStore, event });
+  const state = new RegistrationState(eventId, { api, accessStore, event });
 
   return { state, api, accessStore, event };
 }
 
-function createStateWithUnreadableAccess() {
-  const created = createState();
+function createStateWithEventId(eventId: string) {
+  return createState(null, eventId);
+}
+
+function createStateWithUnreadableAccess(eventId = "sound-workshop") {
+  const created = createState(null, eventId);
   created.accessStore.readRegistrationAccess.mockImplementation(() => {
     throw new Error("Saved registration access cannot be read");
   });

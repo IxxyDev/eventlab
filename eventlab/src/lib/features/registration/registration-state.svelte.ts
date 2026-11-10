@@ -17,6 +17,7 @@ import type {
 
 export type RegistrationApi = {
   createRegistration(
+    eventId: string,
     request: RegistrationRequest,
     idempotencyKey: string,
   ): Promise<RegistrationCreatedResponse>;
@@ -25,9 +26,9 @@ export type RegistrationApi = {
 };
 
 export type RegistrationAccessStore = {
-  readRegistrationAccess(): RegistrationAccess | null;
-  saveRegistrationAccess(access: RegistrationAccess): void;
-  clearRegistrationAccess(): void;
+  readRegistrationAccess(eventId: string): RegistrationAccess | null;
+  saveRegistrationAccess(eventId: string, access: RegistrationAccess): void;
+  clearRegistrationAccess(eventId: string): void;
 };
 
 export type DisplayedEvent = {
@@ -54,15 +55,20 @@ export class RegistrationState {
   #access: RegistrationAccess | null = null;
   #pendingAttempt: RegistrationAttempt | null = null;
 
+  readonly #eventId: string;
   readonly #api: RegistrationApi;
   readonly #accessStore: RegistrationAccessStore;
   readonly #event: DisplayedEvent;
 
-  constructor(dependencies: {
-    api: RegistrationApi;
-    accessStore: RegistrationAccessStore;
-    event: DisplayedEvent;
-  }) {
+  constructor(
+    eventId: string,
+    dependencies: {
+      api: RegistrationApi;
+      accessStore: RegistrationAccessStore;
+      event: DisplayedEvent;
+    },
+  ) {
+    this.#eventId = eventId;
     this.#api = dependencies.api;
     this.#accessStore = dependencies.accessStore;
     this.#event = dependencies.event;
@@ -90,6 +96,7 @@ export class RegistrationState {
 
     try {
       const result = await this.#api.createRegistration(
+        this.#eventId,
         attempt.request,
         attempt.idempotencyKey,
       );
@@ -104,7 +111,7 @@ export class RegistrationState {
       this.storageWarning = "";
 
       try {
-        this.#accessStore.saveRegistrationAccess(access);
+        this.#accessStore.saveRegistrationAccess(this.#eventId, access);
       } catch {
         this.storageWarning =
           "Регистрация создана, но браузер не сохранил ключ доступа. " +
@@ -167,7 +174,7 @@ export class RegistrationState {
     this.cancelNotice = notice;
 
     try {
-      this.#accessStore.clearRegistrationAccess();
+      this.#accessStore.clearRegistrationAccess(this.#eventId);
     } catch {
       this.storageWarning =
         "Регистрация отменена, но браузер не удалил сохранённый ключ. " +
@@ -196,7 +203,7 @@ export class RegistrationState {
         this.#access = access;
       } catch (error) {
         if (error instanceof HttpError && error.status === 404) {
-          this.#accessStore.clearRegistrationAccess();
+          this.#accessStore.clearRegistrationAccess(this.#eventId);
           this.registration = null;
           this.#access = null;
           this.storageWarning =
@@ -221,7 +228,7 @@ export class RegistrationState {
 
   #readSavedAccess(): RegistrationAccess | null {
     try {
-      return this.#accessStore.readRegistrationAccess();
+      return this.#accessStore.readRegistrationAccess(this.#eventId);
     } catch {
       this.storageWarning =
         "Не удалось прочитать сохранённую заявку. " +
@@ -234,7 +241,7 @@ export class RegistrationState {
 
   #clearUnreadableAccess(): void {
     try {
-      this.#accessStore.clearRegistrationAccess();
+      this.#accessStore.clearRegistrationAccess(this.#eventId);
     } catch {
       // Blocked storage forbids clearing too; the warning is already set.
     }
