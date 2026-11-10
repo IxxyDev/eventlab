@@ -23,7 +23,7 @@ export default defineConfig({
     },
     {
       command: "npm run dev -- --port 5173 --strictPort",
-      url: "http://localhost:5173/events/sound-workshop",
+      url: "http://localhost:5173/",
       reuseExistingServer: !process.env.CI,
     },
   ],
