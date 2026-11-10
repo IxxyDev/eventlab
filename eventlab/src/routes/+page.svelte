@@ -16,7 +16,7 @@ const { data }: PageProps = $props();
   <p class="notice">Мероприятий пока нет.</p>
 {:else}
   <ul>
-    {#each data.events as event}
+    {#each data.events as event (event.id)}
       <li class="card">
         <h2>
           <a href={resolve("/events/[id]", { id: event.id })}>{event.title}</a>
