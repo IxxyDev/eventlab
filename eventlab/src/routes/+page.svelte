@@ -15,10 +15,10 @@ const { data }: PageProps = $props();
 {#if data.events.length === 0}
   <p class="notice">Мероприятий пока нет.</p>
 {:else}
-  <ul>
+  <ul class="list">
     {#each data.events as event (event.id)}
       <li class="card">
-        <h2>
+        <h2 class="title">
           <a href={resolve("/events/[id]", { id: event.id })}>{event.title}</a>
         </h2>
         <EventTimeAndPlace {event} />
@@ -28,19 +28,15 @@ const { data }: PageProps = $props();
 {/if}
 
 <style>
-ul {
+.list {
   display: grid;
   gap: var(--space-4);
   padding: 0;
   list-style: none;
 }
 
-h2 {
+.title {
   margin-block: 0 var(--space-2);
   font-size: 1.25rem;
-}
-
-p {
-  margin-block: var(--space-1);
 }
 </style>

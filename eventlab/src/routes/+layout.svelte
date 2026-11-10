@@ -10,12 +10,12 @@ let { children }: LayoutProps = $props();
   <link rel="icon" href={favicon}>
 </svelte:head>
 
-<main>
+<main class="root">
   {@render children()}
 </main>
 
 <style>
-main {
+.root {
   max-width: 50rem;
   margin-inline: auto;
   padding: clamp(var(--space-8), 5vw, var(--space-12)) var(--space-4);
