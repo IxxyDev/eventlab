@@ -11,20 +11,25 @@ const { data }: PageProps = $props();
 </svelte:head>
 
 <h1>Мероприятия</h1>
-<ul>
-  {#each data.events as event}
-    <li class="card">
-      <h2>
-        <a href={resolve("/events/[id]", { id: event.id })}>{event.title}</a>
-      </h2>
-      <p>
-        <time datetime={event.startsAt}>{formatEventSchedule(event)}</time>
-        по местному времени.
-      </p>
-      <p>{event.venue}.</p>
-    </li>
-  {/each}
-</ul>
+
+{#if data.events.length === 0}
+  <p class="notice">Мероприятий пока нет.</p>
+{:else}
+  <ul>
+    {#each data.events as event}
+      <li class="card">
+        <h2>
+          <a href={resolve("/events/[id]", { id: event.id })}>{event.title}</a>
+        </h2>
+        <p>
+          <time datetime={event.startsAt}>{formatEventSchedule(event)}</time>
+          по местному времени.
+        </p>
+        <p>{event.venue}.</p>
+      </li>
+    {/each}
+  </ul>
+{/if}
 
 <style>
 ul {

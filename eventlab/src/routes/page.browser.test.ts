@@ -6,16 +6,26 @@ import Page from "./+page.svelte";
 
 describe("Catalog page", () => {
   it("should link the event to its page", async () => {
-    renderComponent();
+    renderComponent([createEvent()]);
 
     await expect
       .element(page.getByRole("link", { name: "Как устроен звук на концерте" }))
       .toHaveAttribute("href", "/events/sound-workshop");
   });
+
+  it("should say that there are no events yet", async () => {
+    renderComponent([]);
+
+    await expect.element(page.getByText("Мероприятий пока нет.")).toBeVisible();
+  });
 });
 
-function renderComponent() {
-  const event: EventDetails = {
+function renderComponent(events: EventDetails[]) {
+  render(Page, { params: {}, data: { events } });
+}
+
+function createEvent(): EventDetails {
+  return {
     id: "sound-workshop",
     title: "Как устроен звук на концерте",
     description: "Разберём путь звука от микрофона до колонок.",
@@ -27,6 +37,4 @@ function renderComponent() {
     availableSeats: 20,
     registrationOpen: true,
   };
-
-  render(Page, { params: {}, data: { events: [event] } });
 }
