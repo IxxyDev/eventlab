@@ -304,6 +304,7 @@ class EventApiTests {
   @Test
   fun `should return event schedule with event time zone`() {
     createEvent(
+      id = "sound-workshop",
       startsAt = "2026-11-14T15:00:00Z",
       endsAt = "2026-11-14T17:00:00Z",
       timeZone = "Europe/Moscow",
@@ -320,7 +321,7 @@ class EventApiTests {
 
   @Test
   fun `should report registration as open before event starts`() {
-    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    createEvent(id = "sound-workshop", startsAt = "2026-11-14T15:00:00Z")
     given(clock.instant()).willReturn(Instant.parse("2026-11-01T09:00:00Z"))
 
     val eventResult = mvc.perform(get("/api/events/{id}", "sound-workshop"))
@@ -410,7 +411,7 @@ class EventApiTests {
 
   @Test
   fun `should report registration as closed once event has started`() {
-    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    createEvent(id = "sound-workshop", startsAt = "2026-11-14T15:00:00Z")
     given(clock.instant()).willReturn(Instant.parse("2026-11-15T09:00:00Z"))
 
     val eventResult = mvc.perform(get("/api/events/{id}", "sound-workshop"))
