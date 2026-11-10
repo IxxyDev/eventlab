@@ -174,7 +174,7 @@ describe("RegistrationState", () => {
     });
 
     it("should forget a registration the server no longer has", async () => {
-      const { state, api, accessStore } = createState(access);
+      const { state, api, accessStore } = createState(access, "sound-workshop");
       api.cancelRegistration.mockRejectedValueOnce(new HttpError(404));
       await state.restore();
 
@@ -185,7 +185,9 @@ describe("RegistrationState", () => {
         "Заявка уже недоступна: возможно, ее отменили раньше. " +
           "Сохраненный ключ удален.",
       );
-      expect(accessStore.clearRegistrationAccess.mock.calls).toHaveLength(1);
+      expect(accessStore.clearRegistrationAccess.mock.calls).toEqual([
+        ["sound-workshop"],
+      ]);
     });
 
     it("should keep the registration when the response is lost", async () => {
