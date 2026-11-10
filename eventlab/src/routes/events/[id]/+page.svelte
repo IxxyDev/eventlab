@@ -1,7 +1,7 @@
 <script lang="ts">
 import { onMount, untrack } from "svelte";
+import EventTimeAndPlace from "#lib/features/event/components/EventTimeAndPlace.svelte";
 import { getEvent } from "#lib/features/event/event-api.ts";
-import { formatEventSchedule } from "#lib/features/event/event-schedule.ts";
 import { EventState } from "#lib/features/event/event-state.svelte.ts";
 import RegistrationConfirmation from "#lib/features/registration/components/RegistrationConfirmation.svelte";
 import RegistrationForm from "#lib/features/registration/components/RegistrationForm.svelte";
@@ -58,11 +58,7 @@ onMount(() => {
   <section class="details card" aria-label="Информация для участников">
     <div>
       <h2>Когда и где</h2>
-      <p>
-        <time datetime={event.startsAt}>{formatEventSchedule(event)}</time>
-        по местному времени.
-      </p>
-      <p>{event.venue}.</p>
+      <EventTimeAndPlace {event} />
     </div>
 
     <div>

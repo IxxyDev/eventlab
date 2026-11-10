@@ -1,5 +1,5 @@
 <script lang="ts">
-import { formatEventSchedule } from "#lib/features/event/event-schedule.ts";
+import EventTimeAndPlace from "#lib/features/event/components/EventTimeAndPlace.svelte";
 import { resolve } from "$app/paths";
 import type { PageProps } from "./$types";
 
@@ -21,11 +21,7 @@ const { data }: PageProps = $props();
         <h2>
           <a href={resolve("/events/[id]", { id: event.id })}>{event.title}</a>
         </h2>
-        <p>
-          <time datetime={event.startsAt}>{formatEventSchedule(event)}</time>
-          по местному времени.
-        </p>
-        <p>{event.venue}.</p>
+        <EventTimeAndPlace {event} />
       </li>
     {/each}
   </ul>
