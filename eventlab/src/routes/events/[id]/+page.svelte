@@ -15,7 +15,7 @@ const { params }: PageProps = $props();
 
 // The state belongs to one event, so it keeps the id the page was opened with.
 const eventId = untrack(() => params.id);
-const eventState = new EventState(() => getEvent(eventId));
+const eventState = new EventState(() => getEvent(fetch, eventId));
 const registrationState = new RegistrationState(eventId, {
   api: registrationApi,
   accessStore: registrationAccess,

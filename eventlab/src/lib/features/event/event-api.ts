@@ -1,7 +1,10 @@
 import { apiBaseUrl, ensureSuccess } from "#lib/shared/api/http.ts";
 import type { EventDetails } from "./types.ts";
 
-export async function getEvent(id: string): Promise<EventDetails> {
+export async function getEvent(
+  fetch: typeof globalThis.fetch,
+  id: string,
+): Promise<EventDetails> {
   const response = await fetch(
     `${apiBaseUrl}/api/events/${encodeURIComponent(id)}`,
   );

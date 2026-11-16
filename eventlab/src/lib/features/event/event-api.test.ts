@@ -5,9 +5,8 @@ describe("Event API", () => {
   describe("#getEvent", () => {
     it("should request the event by its escaped id", async () => {
       const fetchMock = mockFetch();
-      vi.stubGlobal("fetch", fetchMock);
 
-      await getEvent("../registrations");
+      await getEvent(fetchMock, "../registrations");
 
       expect(fetchMock.mock.calls).toEqual([
         ["http://localhost:8080/api/events/..%2Fregistrations"],
