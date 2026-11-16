@@ -15,19 +15,7 @@ describe("Event page", () => {
     localStorage.clear();
   });
 
-  it("should load the event from the address", async () => {
-    const fetchMock = mockFetch(respondWithEvent({ id: "stage-lighting" }));
-
-    renderComponent("stage-lighting");
-
-    await expect
-      .poll(() => fetchMock.mock.calls)
-      .toEqual([["http://localhost:8080/api/events/stage-lighting"]]);
-  });
-
   it("should link back to the catalog", async () => {
-    mockFetch(respondWithEvent());
-
     renderComponent();
 
     await expect
@@ -35,26 +23,20 @@ describe("Event page", () => {
       .toHaveAttribute("href", "/");
   });
 
-  it("should register for the event from the address", async () => {
-    const fetchMock = mockFetch(
-      respondWithEvent({ id: "stage-lighting" }),
-      respondWithRegistration,
-      keepWaiting,
-    );
-    renderComponent("stage-lighting");
+  it("should register for the shown event", async () => {
+    const fetchMock = mockFetch(respondWithRegistration, keepWaiting);
+    renderComponent(createEvent({ id: "stage-lighting" }));
 
     await registerAnna();
 
-    const [, [address]] = fetchMock.mock.calls;
+    const [[address]] = fetchMock.mock.calls;
     expect(address).toEqual(
       "http://localhost:8080/api/events/stage-lighting/registrations",
     );
   });
 
   it("should say that registration is closed once the event has started", async () => {
-    mockFetch(respondWithEvent({ registrationOpen: false }));
-
-    renderComponent();
+    renderComponent(createEvent({ registrationOpen: false }));
 
     await expect
       .element(page.getByText("Регистрация закрыта: мероприятие уже началось."))
@@ -62,43 +44,15 @@ describe("Event page", () => {
   });
 
   it("should say that registration is closed when no seats are left", async () => {
-    mockFetch(respondWithEvent({ availableSeats: 0 }));
-
-    renderComponent();
+    renderComponent(createEvent({ availableSeats: 0 }));
 
     await expect
       .element(page.getByText("Свободные места закончились. Запись закрыта."))
       .toBeVisible();
   });
 
-  it("should offer to try again when the event cannot be loaded", async () => {
-    mockFetch(loseResponse);
-
-    renderComponent();
-
-    await expect
-      .element(page.getByRole("button", { name: "Попробовать снова" }))
-      .toBeVisible();
-  });
-
-  it("should show the event after trying again", async () => {
-    mockFetch(
-      loseResponse,
-      respondWithEvent({ title: "Как устроен звук на концерте" }),
-    );
-    renderComponent();
-
-    await page.getByRole("button", { name: "Попробовать снова" }).click();
-
-    await expect
-      .element(
-        page.getByRole("heading", { name: "Как устроен звук на концерте" }),
-      )
-      .toBeVisible();
-  });
-
   it("should show that seats are being refreshed after registration", async () => {
-    mockFetch(respondWithEvent(), respondWithRegistration, keepWaiting);
+    mockFetch(respondWithRegistration, keepWaiting);
     renderComponent();
 
     await registerAnna();
@@ -109,7 +63,7 @@ describe("Event page", () => {
   });
 
   it("should offer to refresh seats when the refresh fails", async () => {
-    mockFetch(respondWithEvent(), respondWithRegistration, loseResponse);
+    mockFetch(respondWithRegistration, loseResponse);
     renderComponent();
 
     await registerAnna();
@@ -121,9 +75,9 @@ describe("Event page", () => {
 
   it("should offer to recheck the registration when the server cannot be reached", async () => {
     saveRegistrationAccess("sound-workshop", access);
-    mockFetch(respondWithEvent(), loseResponse);
+    mockFetch(loseResponse);
 
-    renderComponent("sound-workshop");
+    renderComponent(createEvent({ id: "sound-workshop" }));
 
     await expect
       .element(
@@ -147,14 +101,12 @@ function mockFetch(...responses: RespondToRequest[]) {
   return fetchMock;
 }
 
-function renderComponent(eventId = "sound-workshop") {
-  render(Page, { params: { id: eventId }, data: {} });
+function renderComponent(event = createEvent()) {
+  render(Page, { params: { id: event.id }, data: { event } });
 }
 
-function respondWithEvent(
-  overrides: Partial<EventDetails> = {},
-): RespondToRequest {
-  const event: EventDetails = {
+function createEvent(overrides: Partial<EventDetails> = {}): EventDetails {
+  return {
     id: "sound-workshop",
     title: "Как устроен звук на концерте",
     description: "Разберём путь звука от микрофона до колонок.",
@@ -167,8 +119,6 @@ function respondWithEvent(
     registrationOpen: true,
     ...overrides,
   };
-
-  return async () => Response.json(event);
 }
 
 async function respondWithRegistration(): Promise<Response> {
