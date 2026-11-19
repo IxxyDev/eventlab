@@ -36,22 +36,22 @@ onMount(() => {
 
 <a href={resolve("/")}>Все мероприятия</a>
 
-<h1>{event.title}</h1>
+<h1 class="title">{event.title}</h1>
 
-<div class="description">
-  <p>{event.description}</p>
-</div>
+<p class="description">{event.description}</p>
 
 <section class="details card" aria-label="Информация для участников">
   <div>
-    <h2>Когда и где</h2>
+    <h2 class="heading">Когда и где</h2>
     <EventTimeAndPlace {event} />
   </div>
 
   <div>
-    <h2>Условия участия</h2>
-    <p>Всего мест: {event.capacity}.</p>
-    <p aria-live="polite">Свободных мест: {event.availableSeats}.</p>
+    <h2 class="heading">Условия участия</h2>
+    <p class="seats">Всего мест: {event.capacity}.</p>
+    <p class="seats" aria-live="polite">
+      Свободных мест: {event.availableSeats}.
+    </p>
   </div>
 </section>
 
@@ -119,7 +119,7 @@ onMount(() => {
 {/if}
 
 <style>
-h1 {
+.title {
   margin-block: var(--space-4) var(--space-6);
   font-size: clamp(2rem, 6vw, 3.5rem);
   line-height: 1.1;
@@ -127,6 +127,7 @@ h1 {
 
 .description {
   max-width: 65ch;
+  margin-block: var(--space-2);
   font-size: 1.125rem;
 }
 
@@ -136,16 +137,13 @@ h1 {
   margin-top: var(--space-8);
 }
 
-h2 {
-  margin-block: var(--space-6) var(--space-2);
+.heading {
+  margin-block: 0 var(--space-2);
   font-size: 1.125rem;
 }
 
-h2:first-child {
-  margin-top: 0;
-}
-
-p {
+.seats,
+.notice {
   margin-block: var(--space-2);
 }
 
