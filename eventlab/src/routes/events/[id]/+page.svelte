@@ -1,10 +1,9 @@
 <script lang="ts">
-import { onMount, untrack } from "svelte";
+import { untrack } from "svelte";
 import EventTimeAndPlace from "#lib/features/event/components/EventTimeAndPlace.svelte";
 import { getEvent } from "#lib/features/event/event-api.ts";
 import { EventState } from "#lib/features/event/event-state.svelte.ts";
-import RegistrationConfirmation from "#lib/features/registration/components/RegistrationConfirmation.svelte";
-import RegistrationForm from "#lib/features/registration/components/RegistrationForm.svelte";
+import RegistrationSection from "#lib/features/registration/components/RegistrationSection.svelte";
 import * as registrationAccess from "#lib/features/registration/registration-access.ts";
 import * as registrationApi from "#lib/features/registration/registration-api.ts";
 import { RegistrationState } from "#lib/features/registration/registration-state.svelte.ts";
@@ -23,10 +22,6 @@ const registrationState = new RegistrationState(openedEvent.id, {
   api: registrationApi,
   accessStore: registrationAccess,
   event: eventState,
-});
-
-onMount(() => {
-  void registrationState.restore();
 });
 </script>
 
@@ -67,56 +62,8 @@ onMount(() => {
     Обновить количество мест
   </button>
 {/if}
-<p class="storage-note">
-  Заявка хранится на сервере. Ключ доступа сохраняется в этом браузере.
-</p>
 
-{#if registrationState.cancelNotice}
-  <p class="notice" role="status">{registrationState.cancelNotice}</p>
-{/if}
-
-{#if registrationState.storageWarning}
-  <p class="notice notice--warning" role="status">
-    {registrationState.storageWarning}
-  </p>
-{/if}
-
-{#if registrationState.restoreState.status === "loading"}
-  <p class="notice" role="status">Проверяем вашу регистрацию…</p>
-{:else if registrationState.restoreState.status === "error"}
-  <p class="notice notice--error" role="alert">
-    {registrationState.restoreState.message}
-  </p>
-
-  <button
-    class="button button--secondary"
-    type="button"
-    onclick={() => registrationState.restore()}
-  >
-    Повторить проверку регистрации
-  </button>
-{:else if registrationState.registration}
-  <RegistrationConfirmation
-    registration={registrationState.registration}
-    cancelling={registrationState.cancelling}
-    cancelError={registrationState.cancelError}
-    onCancel={() => registrationState.cancel()}
-  />
-{:else if !event.registrationOpen}
-  <p class="notice" role="status">
-    Регистрация закрыта: мероприятие уже началось.
-  </p>
-{:else if event.availableSeats === 0}
-  <p class="notice" role="status">
-    Свободные места закончились. Запись закрыта.
-  </p>
-{:else}
-  <RegistrationForm
-    submitting={registrationState.submitting}
-    registrationError={registrationState.registrationError}
-    onRegister={(request) => registrationState.register(request)}
-  />
-{/if}
+<RegistrationSection {registrationState} {event} />
 
 <style>
 .title {
@@ -145,12 +92,6 @@ onMount(() => {
 .seats,
 .notice {
   margin-block: var(--space-2);
-}
-
-.storage-note {
-  margin-block: var(--space-6);
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
 }
 
 @media (min-width: 40rem) {
