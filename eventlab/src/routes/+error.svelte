@@ -7,6 +7,17 @@ const isNotFound = $derived(page.status === 404);
 const title = $derived(
   isNotFound ? "Страница не найдена" : "Не удалось загрузить страницу",
 );
+
+let retryStatus = $state<RetryStatus>("idle");
+
+async function retryLoading() {
+  retryStatus = "retrying";
+  await refreshAll();
+  // A successful load replaces this page, so still being here means it failed again.
+  retryStatus = "failed";
+}
+
+type RetryStatus = "idle" | "retrying" | "failed";
 </script>
 
 <svelte:head>
@@ -20,7 +31,18 @@ const title = $derived(
 {#if isNotFound}
   <p>Возможно, ссылка устарела или в ней опечатка.</p>
 {:else}
-  <button class="button" type="button" onclick={() => refreshAll()}>
-    Попробовать снова
+  {#if retryStatus === "failed"}
+    <p class="notice notice--error" role="alert">
+      Снова не удалось загрузить страницу. Попробуйте чуть позже.
+    </p>
+  {/if}
+
+  <button
+    class="button"
+    type="button"
+    disabled={retryStatus === "retrying"}
+    onclick={retryLoading}
+  >
+    {retryStatus === "retrying" ? "Пробуем снова…" : "Попробовать снова"}
   </button>
 {/if}
