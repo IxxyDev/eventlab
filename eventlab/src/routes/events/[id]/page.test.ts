@@ -17,7 +17,7 @@ describe("Event page", () => {
     it("should answer not found when the event does not exist", async () => {
       const fetchMock = mockFetch(new Response(null, { status: 404 }));
 
-      const loading = loadPage("abc", fetchMock);
+      const loading = loadPage("vinyl-mastering", fetchMock);
 
       await expect(loading).rejects.toEqual({
         status: 404,
