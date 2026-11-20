@@ -26,7 +26,7 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-describe("event API client", () => {
+describe("Registration API", () => {
   it("should send the registration to the given event as JSON with the idempotency key", async () => {
     const fetchMock = stubFetch(jsonResponse(201, created));
 
