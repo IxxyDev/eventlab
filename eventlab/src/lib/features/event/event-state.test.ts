@@ -16,6 +16,14 @@ const event: EventDetails = {
 };
 
 describe("EventState", () => {
+  it("should replace the event with the refreshed one", async () => {
+    const state = new EventState(event, fetchSoldOutEvent);
+
+    await state.load();
+
+    expect(state.details.availableSeats).toEqual(0);
+  });
+
   it("should keep the shown event when a refresh fails", async () => {
     const state = new EventState(event, loseEvent);
 
@@ -47,6 +55,10 @@ describe("EventState", () => {
       expect(state.details).toEqual({ ...event, ...changed });
     },
   );
+
+  async function fetchSoldOutEvent(): Promise<EventDetails> {
+    return { ...event, availableSeats: 0 };
+  }
 
   async function loseEvent(): Promise<EventDetails> {
     throw new TypeError("Failed to fetch");
