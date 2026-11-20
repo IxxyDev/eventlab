@@ -57,7 +57,7 @@ const registrationState = new RegistrationState(openedEvent.id, {
   <button
     class="button button--secondary"
     type="button"
-    onclick={() => eventState.load()}
+    onclick={() => eventState.refresh()}
   >
     Обновить количество мест
   </button>

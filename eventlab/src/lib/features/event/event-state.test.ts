@@ -19,7 +19,7 @@ describe("EventState", () => {
   it("should replace the event with the refreshed one", async () => {
     const state = new EventState(event, fetchSoldOutEvent);
 
-    await state.load();
+    await state.refresh();
 
     expect(state.details.availableSeats).toEqual(0);
   });
@@ -27,7 +27,7 @@ describe("EventState", () => {
   it("should keep the shown event when a refresh fails", async () => {
     const state = new EventState(event, loseEvent);
 
-    await state.load();
+    await state.refresh();
 
     expect(state.details).toEqual(event);
   });
@@ -35,7 +35,7 @@ describe("EventState", () => {
   it("should warn that seats are not refreshed when a refresh fails", async () => {
     const state = new EventState(event, loseEvent);
 
-    await state.load();
+    await state.refresh();
 
     expect(state.error).toEqual(
       "Не удалось обновить количество мест. Показаны последние полученные данные.",

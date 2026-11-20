@@ -52,12 +52,12 @@ describe("RegistrationState", () => {
       ]);
     });
 
-    it("should reload the event after registration", async () => {
+    it("should refresh the event after registration", async () => {
       const { state, event } = createState();
 
       await state.register(request);
 
-      expect(event.load.mock.calls).toEqual([[]]);
+      expect(event.refresh.mock.calls).toEqual([[]]);
     });
 
     it("should ask to press again when the response is lost", async () => {
@@ -102,7 +102,7 @@ describe("RegistrationState", () => {
         await state.register(request);
 
         expect(event[mark].mock.calls).toEqual([[]]);
-        expect(event.load.mock.calls).toEqual([[]]);
+        expect(event.refresh.mock.calls).toEqual([[]]);
         expect(state.registration).toEqual(null);
       },
     );
@@ -164,13 +164,13 @@ describe("RegistrationState", () => {
       ]);
     });
 
-    it("should reload the event after cancelling", async () => {
+    it("should refresh the event after cancelling", async () => {
       const { state, event } = createState(access);
       await state.restore();
 
       await state.cancel();
 
-      expect(event.load.mock.calls).toEqual([[]]);
+      expect(event.refresh.mock.calls).toEqual([[]]);
     });
 
     it("should forget a registration the server no longer has", async () => {
@@ -344,7 +344,7 @@ function createState(
       vi.fn<RegistrationAccessStore["clearRegistrationAccess"]>(),
   };
   const event = {
-    load: vi.fn(async () => {}),
+    refresh: vi.fn(async () => {}),
     markRegistrationClosed: vi.fn(),
     markSoldOut: vi.fn(),
   };

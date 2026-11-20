@@ -32,7 +32,7 @@ export type RegistrationAccessStore = {
 };
 
 export type DisplayedEvent = {
-  load(): Promise<void>;
+  refresh(): Promise<void>;
   markRegistrationClosed(): void;
   markSoldOut(): void;
 };
@@ -118,7 +118,7 @@ export class RegistrationState {
           "После обновления страницы автоматическое восстановление не сработает.";
       }
 
-      await this.#event.load();
+      await this.#event.refresh();
     } catch (error) {
       this.registrationError = describeRegistrationError(error);
 
@@ -134,7 +134,7 @@ export class RegistrationState {
           this.#event.markSoldOut();
         }
 
-        await this.#event.load();
+        await this.#event.refresh();
       }
     } finally {
       this.submitting = false;
@@ -181,7 +181,7 @@ export class RegistrationState {
         "Он больше не действует.";
     }
 
-    await this.#event.load();
+    await this.#event.refresh();
   }
 
   async restore(): Promise<void> {
