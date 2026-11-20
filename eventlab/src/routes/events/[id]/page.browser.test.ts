@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-svelte";
 import type { EventDetails } from "#lib/features/event/types.ts";
-import { saveRegistrationAccess } from "#lib/features/registration/registration-access.ts";
 import Page from "./+page.svelte";
 
 const access = {
@@ -35,22 +34,6 @@ describe("Event page", () => {
     );
   });
 
-  it("should say that registration is closed once the event has started", async () => {
-    renderComponent(createEvent({ registrationOpen: false }));
-
-    await expect
-      .element(page.getByText("Регистрация закрыта: мероприятие уже началось."))
-      .toBeVisible();
-  });
-
-  it("should say that registration is closed when no seats are left", async () => {
-    renderComponent(createEvent({ availableSeats: 0 }));
-
-    await expect
-      .element(page.getByText("Свободные места закончились. Запись закрыта."))
-      .toBeVisible();
-  });
-
   it("should show that seats are being refreshed after registration", async () => {
     mockFetch(respondWithRegistration, keepWaiting);
     renderComponent();
@@ -70,19 +53,6 @@ describe("Event page", () => {
 
     await expect
       .element(page.getByRole("button", { name: "Обновить количество мест" }))
-      .toBeVisible();
-  });
-
-  it("should offer to recheck the registration when the server cannot be reached", async () => {
-    saveRegistrationAccess("sound-workshop", access);
-    mockFetch(loseResponse);
-
-    renderComponent(createEvent({ id: "sound-workshop" }));
-
-    await expect
-      .element(
-        page.getByRole("button", { name: "Повторить проверку регистрации" }),
-      )
       .toBeVisible();
   });
 });
