@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
     return { event: await getEvent(fetch, params.id) };
   } catch (cause) {
     if (cause instanceof HttpError && cause.status === 404) {
-      error(404, "Мероприятие не найдено");
+      error(404);
     }
 
     throw cause;

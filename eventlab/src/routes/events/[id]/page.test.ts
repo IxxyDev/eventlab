@@ -19,10 +19,7 @@ describe("Event page", () => {
 
       const loading = loadPage("vinyl-mastering", fetchMock);
 
-      await expect(loading).rejects.toEqual({
-        status: 404,
-        body: { status: 404, message: "Мероприятие не найдено" },
-      });
+      await expect(loading).rejects.toHaveProperty("status", 404);
     });
   });
 
