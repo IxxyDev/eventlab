@@ -1,7 +1,6 @@
 package dev.eventlab.api
 
 import com.jayway.jsonpath.JsonPath
-import dev.eventlab.api.event.EVENT_ID
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
@@ -305,12 +304,13 @@ class EventApiTests {
   @Test
   fun `should return event schedule with event time zone`() {
     createEvent(
+      id = "sound-workshop",
       startsAt = "2026-11-14T15:00:00Z",
       endsAt = "2026-11-14T17:00:00Z",
       timeZone = "Europe/Moscow",
     )
 
-    val eventResult = mvc.perform(get("/api/event"))
+    val eventResult = mvc.perform(get("/api/events/{id}", "sound-workshop"))
 
     eventResult
       .andExpect(status().isOk())
@@ -321,10 +321,10 @@ class EventApiTests {
 
   @Test
   fun `should report registration as open before event starts`() {
-    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    createEvent(id = "sound-workshop", startsAt = "2026-11-14T15:00:00Z")
     given(clock.instant()).willReturn(Instant.parse("2026-11-01T09:00:00Z"))
 
-    val eventResult = mvc.perform(get("/api/event"))
+    val eventResult = mvc.perform(get("/api/events/{id}", "sound-workshop"))
 
     eventResult
       .andExpect(jsonPath("$.registrationOpen").value(true))
@@ -411,10 +411,10 @@ class EventApiTests {
 
   @Test
   fun `should report registration as closed once event has started`() {
-    createEvent(startsAt = "2026-11-14T15:00:00Z")
+    createEvent(id = "sound-workshop", startsAt = "2026-11-14T15:00:00Z")
     given(clock.instant()).willReturn(Instant.parse("2026-11-15T09:00:00Z"))
 
-    val eventResult = mvc.perform(get("/api/event"))
+    val eventResult = mvc.perform(get("/api/events/{id}", "sound-workshop"))
 
     eventResult
       .andExpect(jsonPath("$.registrationOpen").value(false))
@@ -567,7 +567,7 @@ class EventApiTests {
   }
 
   private fun createEvent(
-    id: String = EVENT_ID,
+    id: String = "sound-workshop",
     organizationName: String = "Школа звукорежиссуры «Микшер»",
     startsAt: String = "2026-11-14T15:00:00Z",
     endsAt: String = "2026-11-14T17:00:00Z",
@@ -661,7 +661,7 @@ class EventApiTests {
     name: String,
     email: String,
     idempotencyKey: String? = null,
-    eventId: String = EVENT_ID,
+    eventId: String = "sound-workshop",
   ): MockHttpServletRequestBuilder {
     val request =
       post("/api/events/{eventId}/registrations", eventId)
@@ -717,7 +717,7 @@ class EventApiTests {
 
   private fun expectAvailableSeats(
     count: Int,
-    eventId: String = EVENT_ID,
+    eventId: String = "sound-workshop",
   ) {
     mvc
       .perform(get("/api/events/{id}", eventId))

@@ -1,117 +1,41 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-svelte";
 import type { EventDetails } from "#lib/features/event/types.ts";
-import { saveRegistrationAccess } from "#lib/features/registration/registration-access.ts";
 import Page from "./+page.svelte";
 
-const access = {
-  id: "9c55e2a7-3f6c-4b9e-8a41-0d7f2b1c6e30",
-  accessToken: "q7Vd2LxN9tRb4KsY1mPz8WcF3hJg6TaE0uQoXi5nDwM",
-};
-
-describe("Event page", () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  it("should say that registration is closed once the event has started", async () => {
-    mockFetch(respondWithEvent({ registrationOpen: false }));
-
-    render(Page);
+describe("Catalog page", () => {
+  it("should link the event to its page", async () => {
+    renderComponent([
+      createEvent({
+        id: "sound-workshop",
+        title: "Как устроен звук на концерте",
+      }),
+    ]);
 
     await expect
-      .element(page.getByText("Регистрация закрыта: мероприятие уже началось."))
-      .toBeVisible();
+      .element(page.getByRole("link", { name: "Как устроен звук на концерте" }))
+      .toHaveAttribute("href", "/events/sound-workshop");
   });
 
-  it("should say that registration is closed when no seats are left", async () => {
-    mockFetch(respondWithEvent({ availableSeats: 0 }));
+  it("should say that there are no events yet", async () => {
+    renderComponent([]);
 
-    render(Page);
-
-    await expect
-      .element(page.getByText("Свободные места закончились. Запись закрыта."))
-      .toBeVisible();
-  });
-
-  it("should offer to try again when the event cannot be loaded", async () => {
-    mockFetch(loseResponse);
-
-    render(Page);
-
-    await expect
-      .element(page.getByRole("button", { name: "Попробовать снова" }))
-      .toBeVisible();
-  });
-
-  it("should show the event after trying again", async () => {
-    mockFetch(loseResponse, respondWithEvent());
-    render(Page);
-
-    await page.getByRole("button", { name: "Попробовать снова" }).click();
-
-    await expect
-      .element(
-        page.getByRole("heading", { name: "Как устроен звук на концерте" }),
-      )
-      .toBeVisible();
-  });
-
-  it("should show that seats are being refreshed after registration", async () => {
-    mockFetch(respondWithEvent(), respondWithRegistration, keepWaiting);
-    render(Page);
-
-    await registerAnna();
-
-    await expect
-      .element(page.getByText("Обновляем количество мест…"))
-      .toBeVisible();
-  });
-
-  it("should offer to refresh seats when the refresh fails", async () => {
-    mockFetch(respondWithEvent(), respondWithRegistration, loseResponse);
-    render(Page);
-
-    await registerAnna();
-
-    await expect
-      .element(page.getByRole("button", { name: "Обновить количество мест" }))
-      .toBeVisible();
-  });
-
-  it("should offer to recheck the registration when the server cannot be reached", async () => {
-    saveRegistrationAccess(access);
-    mockFetch(respondWithEvent(), loseResponse);
-
-    render(Page);
-
-    await expect
-      .element(
-        page.getByRole("button", { name: "Повторить проверку регистрации" }),
-      )
-      .toBeVisible();
+    await expect.element(page.getByText("Мероприятий пока нет.")).toBeVisible();
   });
 });
 
-type RespondToRequest = () => Promise<Response>;
-
-function mockFetch(...responses: RespondToRequest[]) {
-  const fetchMock = vi.fn<typeof fetch>();
-
-  for (const respond of responses) {
-    fetchMock.mockImplementationOnce(respond);
-  }
-
-  vi.stubGlobal("fetch", fetchMock);
+function renderComponent(events: EventDetails[]) {
+  render(Page, { params: {}, data: { events } });
 }
 
-function respondWithEvent(
-  overrides: Partial<EventDetails> = {},
-): RespondToRequest {
-  const event: EventDetails = {
-    id: "sound-workshop",
-    title: "Как устроен звук на концерте",
+function createEvent({
+  id,
+  title,
+}: Pick<EventDetails, "id" | "title">): EventDetails {
+  return {
+    id,
+    title,
     description: "Разберём путь звука от микрофона до колонок.",
     startsAt: "2026-11-14T15:00:00Z",
     endsAt: "2026-11-14T17:00:00Z",
@@ -120,33 +44,5 @@ function respondWithEvent(
     capacity: 20,
     availableSeats: 20,
     registrationOpen: true,
-    ...overrides,
   };
-
-  return async () => Response.json(event);
-}
-
-async function respondWithRegistration(): Promise<Response> {
-  return Response.json({
-    registration: {
-      id: access.id,
-      name: "Анна",
-      email: "anna@example.com",
-    },
-    accessToken: access.accessToken,
-  });
-}
-
-async function loseResponse(): Promise<Response> {
-  throw new TypeError("Failed to fetch");
-}
-
-function keepWaiting(): Promise<Response> {
-  return new Promise(() => {});
-}
-
-async function registerAnna() {
-  await page.getByRole("textbox", { name: "Имя" }).fill("Анна");
-  await page.getByRole("textbox", { name: "Email" }).fill("anna@example.com");
-  await page.getByRole("button", { name: "Записаться" }).click();
 }

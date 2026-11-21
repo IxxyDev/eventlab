@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { EventState } from "./event-state.svelte.ts";
 import type { EventDetails } from "./types.ts";
 
@@ -16,30 +16,27 @@ const event: EventDetails = {
 };
 
 describe("EventState", () => {
-  it("should show an error when the first load fails", async () => {
-    const state = new EventState(async () => {
-      throw new TypeError("Failed to fetch");
-    });
+  it("should replace the event with the refreshed one", async () => {
+    const state = new EventState(event, fetchSoldOutEvent);
 
-    await state.load();
+    await state.refresh();
 
-    expect(state.details).toEqual(null);
-    expect(state.error).toEqual(
-      "Не удалось загрузить мероприятие. Попробуйте позже.",
-    );
+    expect(state.details.availableSeats).toEqual(0);
   });
 
-  it("should keep the last event when a refresh fails", async () => {
-    const loadEvent = vi
-      .fn<() => Promise<EventDetails>>()
-      .mockResolvedValueOnce(event)
-      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
-    const state = new EventState(loadEvent);
-    await state.load();
+  it("should keep the shown event when a refresh fails", async () => {
+    const state = new EventState(event, loseEvent);
 
-    await state.load();
+    await state.refresh();
 
     expect(state.details).toEqual(event);
+  });
+
+  it("should warn that seats are not refreshed when a refresh fails", async () => {
+    const state = new EventState(event, loseEvent);
+
+    await state.refresh();
+
     expect(state.error).toEqual(
       "Не удалось обновить количество мест. Показаны последние полученные данные.",
     );
@@ -50,13 +47,20 @@ describe("EventState", () => {
     { mark: "markSoldOut", changed: { availableSeats: 0 } },
   ] as const)(
     "should change only its own field on $mark",
-    async ({ mark, changed }) => {
-      const state = new EventState(async () => event);
-      await state.load();
+    ({ mark, changed }) => {
+      const state = new EventState(event, async () => event);
 
       state[mark]();
 
       expect(state.details).toEqual({ ...event, ...changed });
     },
   );
+
+  async function fetchSoldOutEvent(): Promise<EventDetails> {
+    return { ...event, availableSeats: 0 };
+  }
+
+  async function loseEvent(): Promise<EventDetails> {
+    throw new TypeError("Failed to fetch");
+  }
 });

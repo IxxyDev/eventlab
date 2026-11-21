@@ -14,25 +14,41 @@ describe("registration access", () => {
   });
 
   it("should return null when nothing is saved", () => {
-    const restored = readRegistrationAccess();
+    const restored = readRegistrationAccess("sound-workshop");
 
     expect(restored).toEqual(null);
   });
 
   it("should restore the saved access", () => {
-    saveRegistrationAccess(access);
+    saveRegistrationAccess("sound-workshop", access);
 
-    const restored = readRegistrationAccess();
+    const restored = readRegistrationAccess("sound-workshop");
 
     expect(restored).toEqual(access);
   });
 
   it("should forget the access after clearing", () => {
-    saveRegistrationAccess(access);
+    saveRegistrationAccess("sound-workshop", access);
 
-    clearRegistrationAccess();
+    clearRegistrationAccess("sound-workshop");
 
-    expect(readRegistrationAccess()).toEqual(null);
+    expect(readRegistrationAccess("sound-workshop")).toEqual(null);
+  });
+
+  it("should not restore the access saved for another event", () => {
+    saveRegistrationAccess("sound-workshop", access);
+
+    const restored = readRegistrationAccess("stage-lighting");
+
+    expect(restored).toEqual(null);
+  });
+
+  it("should not clear the access saved for another event", () => {
+    saveRegistrationAccess("sound-workshop", access);
+
+    clearRegistrationAccess("stage-lighting");
+
+    expect(readRegistrationAccess("sound-workshop")).toEqual(access);
   });
 
   it.each([
@@ -44,7 +60,7 @@ describe("registration access", () => {
   ])("should reject corrupted saved value $saved", ({ saved }) => {
     localStorage.setItem(storageKey, saved);
 
-    const restore = () => readRegistrationAccess();
+    const restore = () => readRegistrationAccess("sound-workshop");
 
     expect(restore).toThrow();
   });

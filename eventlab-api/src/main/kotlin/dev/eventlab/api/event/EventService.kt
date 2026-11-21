@@ -3,8 +3,6 @@ package dev.eventlab.api.event
 import org.springframework.stereotype.Service
 import java.time.Clock
 
-const val EVENT_ID = "sound-workshop"
-
 @Service
 class EventService(
   private val eventRepository: EventRepository,

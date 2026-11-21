@@ -6,11 +6,12 @@ import type {
 } from "./types.ts";
 
 export async function createRegistration(
+  eventId: string,
   request: RegistrationRequest,
   idempotencyKey: string,
 ): Promise<RegistrationCreatedResponse> {
   const response = await fetch(
-    `${apiBaseUrl}/api/events/sound-workshop/registrations`,
+    `${apiBaseUrl}/api/events/${encodeURIComponent(eventId)}/registrations`,
     {
       method: "POST",
       headers: {

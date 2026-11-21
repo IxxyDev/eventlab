@@ -1,50 +1,42 @@
 import type { EventDetails } from "./types.ts";
 
-type LoadEvent = () => Promise<EventDetails>;
-
 export class EventState {
-  details = $state<EventDetails | null>(null);
-  loading = $state(true);
+  details: EventDetails;
   refreshing = $state(false);
   error = $state("");
 
-  readonly #loadEvent: LoadEvent;
+  readonly #fetchEvent: FetchEventFn;
 
-  constructor(loadEvent: LoadEvent) {
-    this.#loadEvent = loadEvent;
+  constructor(details: EventDetails, fetchEvent: FetchEventFn) {
+    this.details = $state(details);
+    this.#fetchEvent = fetchEvent;
   }
 
-  async load(): Promise<void> {
+  async refresh(): Promise<void> {
     if (this.refreshing) {
       return;
     }
-    this.loading = this.details === null;
-    this.refreshing = this.details !== null;
+    this.refreshing = true;
     this.error = "";
 
     try {
-      this.details = await this.#loadEvent();
+      this.details = await this.#fetchEvent();
     } catch (error) {
-      console.error("Не удалось загрузить мероприятие", error);
+      console.error("Не удалось обновить мероприятие", error);
       this.error =
-        this.details === null
-          ? "Не удалось загрузить мероприятие. Попробуйте позже."
-          : "Не удалось обновить количество мест. Показаны последние полученные данные.";
+        "Не удалось обновить количество мест. Показаны последние полученные данные.";
     } finally {
-      this.loading = false;
       this.refreshing = false;
     }
   }
 
   markRegistrationClosed(): void {
-    if (this.details) {
-      this.details = { ...this.details, registrationOpen: false };
-    }
+    this.details = { ...this.details, registrationOpen: false };
   }
 
   markSoldOut(): void {
-    if (this.details) {
-      this.details = { ...this.details, availableSeats: 0 };
-    }
+    this.details = { ...this.details, availableSeats: 0 };
   }
 }
+
+type FetchEventFn = () => Promise<EventDetails>;

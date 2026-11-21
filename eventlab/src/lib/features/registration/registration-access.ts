@@ -1,7 +1,7 @@
-const storageKey = "eventlab:registration-access:sound-workshop";
-
-export function readRegistrationAccess(): RegistrationAccess | null {
-  const saved = localStorage.getItem(storageKey);
+export function readRegistrationAccess(
+  eventId: string,
+): RegistrationAccess | null {
+  const saved = localStorage.getItem(toStorageKey(eventId));
 
   if (saved === null) {
     return null;
@@ -28,12 +28,19 @@ export function readRegistrationAccess(): RegistrationAccess | null {
   };
 }
 
-export function saveRegistrationAccess(access: RegistrationAccess): void {
-  localStorage.setItem(storageKey, JSON.stringify(access));
+export function saveRegistrationAccess(
+  eventId: string,
+  access: RegistrationAccess,
+): void {
+  localStorage.setItem(toStorageKey(eventId), JSON.stringify(access));
 }
 
-export function clearRegistrationAccess(): void {
-  localStorage.removeItem(storageKey);
+export function clearRegistrationAccess(eventId: string): void {
+  localStorage.removeItem(toStorageKey(eventId));
+}
+
+function toStorageKey(eventId: string): string {
+  return `eventlab:registration-access:${eventId}`;
 }
 
 export type RegistrationAccess = {
