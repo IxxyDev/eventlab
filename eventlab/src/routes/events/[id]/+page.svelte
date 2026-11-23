@@ -28,6 +28,8 @@ const registrationState = new RegistrationState(openedEvent.id, {
 <svelte:head>
   <title>{event.title} – EventLab</title>
   <meta name="description" content={event.description}>
+  <meta property="og:title" content={event.title}>
+  <meta property="og:description" content={event.description}>
 </svelte:head>
 
 <a href={resolve("/")}>Все мероприятия</a>
