@@ -8,6 +8,10 @@ const { data }: PageProps = $props();
 
 <svelte:head>
   <title>Мероприятия – EventLab</title>
+  <meta
+    name="description"
+    content="Найдите мероприятие, узнайте, когда и где оно пройдёт, и запишитесь на участие."
+  >
 </svelte:head>
 
 <h1>Мероприятия</h1>
