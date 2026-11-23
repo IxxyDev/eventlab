@@ -72,7 +72,10 @@ function mockFetch(...responses: RespondToRequest[]) {
 }
 
 function renderComponent(event = createEvent()) {
-  render(Page, { params: { id: event.id }, data: { event } });
+  render(Page, {
+    params: { id: event.id },
+    data: { event, canonicalUrl: `http://localhost:5173/events/${event.id}` },
+  });
 }
 
 function createEvent(overrides: Partial<EventDetails> = {}): EventDetails {
