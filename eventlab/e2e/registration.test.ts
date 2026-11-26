@@ -124,3 +124,18 @@ test("should restore the second registration after reload", async ({
     page.getByText(`Email: ${email}`, { exact: true }),
   ).toBeVisible();
 });
+
+test("should keep another event registration after cancelling", async ({
+  page,
+}) => {
+  const email = await register(page, "sound-workshop");
+  await register(page, "stage-lighting");
+
+  await page.getByRole("button", { name: "Отменить регистрацию" }).click();
+  await page.getByText("Регистрация отменена.", { exact: true }).waitFor();
+  await page.goto("/events/sound-workshop");
+
+  await expect(
+    page.getByText(`Email: ${email}`, { exact: true }),
+  ).toBeVisible();
+});
