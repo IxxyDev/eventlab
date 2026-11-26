@@ -83,3 +83,18 @@ test("should have no accessibility violations on the registration form", async (
 
   expect(results.violations).toEqual([]);
 });
+
+test("should register for another event with the same email", async ({
+  page,
+}) => {
+  const email = await register(page);
+
+  await page.goto("/events/stage-lighting");
+  await page.getByRole("textbox", { name: "Имя" }).fill("Анна");
+  await page.getByRole("textbox", { name: "Email" }).fill(email);
+  await page.getByRole("button", { name: "Записаться" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Вы зарегистрированы" }),
+  ).toBeVisible();
+});
