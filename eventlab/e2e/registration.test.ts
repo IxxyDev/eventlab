@@ -12,8 +12,8 @@ async function fillRegistration(page: Page): Promise<string> {
   return email;
 }
 
-async function register(page: Page): Promise<string> {
-  await page.goto("/events/sound-workshop");
+async function register(page: Page, eventId: string): Promise<string> {
+  await page.goto(`/events/${eventId}`);
   const email = await fillRegistration(page);
   await page.getByRole("button", { name: "Записаться" }).click();
   await page.getByRole("heading", { name: "Вы зарегистрированы" }).waitFor();
@@ -24,7 +24,7 @@ async function register(page: Page): Promise<string> {
 test.beforeEach(resetDatabase);
 
 test("should restore the registration after reload", async ({ page }) => {
-  const email = await register(page);
+  const email = await register(page, "sound-workshop");
 
   await page.reload();
 
@@ -35,7 +35,7 @@ test("should restore the registration after reload", async ({ page }) => {
 });
 
 test("should show the form again after cancelling", async ({ page }) => {
-  await register(page);
+  await register(page, "sound-workshop");
 
   await page.getByRole("button", { name: "Отменить регистрацию" }).click();
 
@@ -87,7 +87,7 @@ test("should have no accessibility violations on the registration form", async (
 test("should register for another event with the same email", async ({
   page,
 }) => {
-  const email = await register(page);
+  const email = await register(page, "sound-workshop");
 
   await page.goto("/events/stage-lighting");
   await page.getByRole("textbox", { name: "Имя" }).fill("Анна");
@@ -96,5 +96,31 @@ test("should register for another event with the same email", async ({
 
   await expect(
     page.getByRole("heading", { name: "Вы зарегистрированы" }),
+  ).toBeVisible();
+});
+
+test("should restore the first registration after registering for another event", async ({
+  page,
+}) => {
+  const email = await register(page, "sound-workshop");
+  await register(page, "stage-lighting");
+
+  await page.goto("/events/sound-workshop");
+
+  await expect(
+    page.getByText(`Email: ${email}`, { exact: true }),
+  ).toBeVisible();
+});
+
+test("should restore the second registration after reload", async ({
+  page,
+}) => {
+  await register(page, "sound-workshop");
+  const email = await register(page, "stage-lighting");
+
+  await page.reload();
+
+  await expect(
+    page.getByText(`Email: ${email}`, { exact: true }),
   ).toBeVisible();
 });
