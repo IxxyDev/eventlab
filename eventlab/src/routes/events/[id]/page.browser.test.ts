@@ -22,6 +22,16 @@ describe("Event page", () => {
       .toHaveAttribute("href", "/");
   });
 
+  it("should show the event organizer", async () => {
+    renderComponent(
+      createEvent({ organizationName: "Лаборатория света «Луч»" }),
+    );
+
+    await expect
+      .element(page.getByText("Организатор: Лаборатория света «Луч»"))
+      .toBeVisible();
+  });
+
   it("should register for the shown event", async () => {
     const fetchMock = mockFetch(respondWithRegistration, keepWaiting);
     renderComponent(createEvent({ id: "stage-lighting" }));
@@ -81,6 +91,7 @@ function renderComponent(event = createEvent()) {
 function createEvent(overrides: Partial<EventDetails> = {}): EventDetails {
   return {
     id: "sound-workshop",
+    organizationName: "Школа звукорежиссуры «Микшер»",
     title: "Как устроен звук на концерте",
     description: "Разберём путь звука от микрофона до колонок.",
     startsAt: "2026-11-14T15:00:00Z",

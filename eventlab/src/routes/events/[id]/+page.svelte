@@ -43,6 +43,8 @@ const registrationState = new RegistrationState(openedEvent.id, {
 
 <h1 class="title">{event.title}</h1>
 
+<p class="organizer">Организатор: {event.organizationName}</p>
+
 <p class="description">{event.description}</p>
 
 <section class="details card" aria-label="Информация для участников">
@@ -99,6 +101,7 @@ const registrationState = new RegistrationState(openedEvent.id, {
   font-size: 1.125rem;
 }
 
+.organizer,
 .seats,
 .notice {
   margin-block: var(--space-2);
