@@ -3,4 +3,5 @@ INSERT INTO registrations (
 )
 VALUES (
   :id, :eventId, :name, :email, :accessTokenHash, :idempotencyKeyHash
-);
+)
+ON CONFLICT (idempotency_key_hash) DO NOTHING;

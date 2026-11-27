@@ -8,6 +8,10 @@ const { data }: PageProps = $props();
 
 <svelte:head>
   <title>Мероприятия – EventLab</title>
+  <meta
+    name="description"
+    content="Найдите мероприятие, узнайте, когда и где оно пройдёт, и запишитесь на участие."
+  >
 </svelte:head>
 
 <h1>Мероприятия</h1>
@@ -21,6 +25,7 @@ const { data }: PageProps = $props();
         <h2 class="title">
           <a href={resolve("/events/[id]", { id: event.id })}>{event.title}</a>
         </h2>
+        <p class="organizer">Организатор: {event.organizationName}</p>
         <EventTimeAndPlace {event} />
       </li>
     {/each}
@@ -33,6 +38,10 @@ const { data }: PageProps = $props();
   gap: var(--space-4);
   padding: 0;
   list-style: none;
+}
+
+.organizer {
+  margin-block: var(--space-2);
 }
 
 .title {

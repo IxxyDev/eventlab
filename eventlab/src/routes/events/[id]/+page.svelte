@@ -7,10 +7,13 @@ import RegistrationSection from "#lib/features/registration/components/Registrat
 import * as registrationAccess from "#lib/features/registration/registration-access.ts";
 import * as registrationApi from "#lib/features/registration/registration-api.ts";
 import { RegistrationState } from "#lib/features/registration/registration-state.svelte.ts";
-import { resolve } from "$app/paths";
+import { asset, resolve } from "$app/paths";
 import type { PageProps } from "./$types";
 
 const { data }: PageProps = $props();
+const shareImageUrl = $derived(
+  new URL(asset("event-share.png"), data.canonicalUrl).href,
+);
 
 // The state belongs to one event, so it keeps the event the page was opened with.
 const openedEvent = untrack(() => data.event);
@@ -27,11 +30,20 @@ const registrationState = new RegistrationState(openedEvent.id, {
 
 <svelte:head>
   <title>{event.title} – EventLab</title>
+  <meta name="description" content={event.description}>
+  <meta property="og:title" content={event.title}>
+  <meta property="og:description" content={event.description}>
+  <meta property="og:type" content="website">
+  <meta property="og:url" content={data.canonicalUrl}>
+  <meta property="og:image" content={shareImageUrl}>
+  <meta property="og:image:alt" content="Логотип EventLab">
 </svelte:head>
 
 <a href={resolve("/")}>Все мероприятия</a>
 
 <h1 class="title">{event.title}</h1>
+
+<p class="organizer">Организатор: {event.organizationName}</p>
 
 <p class="description">{event.description}</p>
 
@@ -89,6 +101,7 @@ const registrationState = new RegistrationState(openedEvent.id, {
   font-size: 1.125rem;
 }
 
+.organizer,
 .seats,
 .notice {
   margin-block: var(--space-2);

@@ -120,7 +120,9 @@ class RegistrationService(
         idempotencyKeyHash = idempotencyKeyHash,
       )
 
-    registrationRepository.insert(registration)
+    if (!registrationRepository.insert(registration)) {
+      throw IdempotencyKeyReusedException()
+    }
 
     return RegistrationWithAccessToken(
       registration = registration,

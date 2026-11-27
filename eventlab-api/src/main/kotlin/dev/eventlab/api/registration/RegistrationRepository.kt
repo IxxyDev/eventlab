@@ -47,7 +47,7 @@ class RegistrationRepository(
       .list()
       .firstOrNull()
 
-  fun insert(registration: Registration) {
+  fun insert(registration: Registration): Boolean =
     jdbcClient
       .sql(insertSql)
       .param("id", registration.id)
@@ -56,8 +56,7 @@ class RegistrationRepository(
       .param("email", registration.email)
       .param("accessTokenHash", registration.accessTokenHash)
       .param("idempotencyKeyHash", registration.idempotencyKeyHash)
-      .update()
-  }
+      .update() > 0
 
   fun replaceAccessTokenHash(
     id: UUID,

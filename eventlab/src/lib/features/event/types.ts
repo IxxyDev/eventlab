@@ -1,5 +1,6 @@
 export type EventDetails = {
   id: string;
+  organizationName: string;
   title: string;
   description: string;
   startsAt: string;

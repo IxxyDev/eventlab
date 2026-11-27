@@ -522,6 +522,37 @@ class EventApiTests {
   }
 
   @Test
+  fun `should reject simultaneous reuse of an idempotency key for another event`() {
+    createEvent(id = "sound-workshop")
+    createEvent(id = "stage-lighting")
+    val idempotencyKey = UUID.randomUUID().toString()
+    val requests =
+      listOf(
+        registrationRequest(
+          "Anna",
+          "anna@example.com",
+          idempotencyKey,
+          "sound-workshop",
+        ),
+        registrationRequest(
+          "Anna",
+          "anna@example.com",
+          idempotencyKey,
+          "stage-lighting",
+        ),
+      )
+
+    val responses = performSimultaneously(requests)
+
+    assertEquals(listOf(201, 422), responses.map { it.status }.sorted())
+    val rejected = responses.single { it.status == 422 }
+    assertEquals(
+      "IDEMPOTENCY_KEY_REUSED",
+      JsonPath.read<String>(rejected.contentAsString, "$.code"),
+    )
+  }
+
+  @Test
   fun `should reject malformed idempotency key`() {
     createEvent()
 

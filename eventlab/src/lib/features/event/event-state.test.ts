@@ -4,6 +4,7 @@ import type { EventDetails } from "./types.ts";
 
 const event: EventDetails = {
   id: "sound-workshop",
+  organizationName: "Школа звукорежиссуры «Микшер»",
   title: "Звук в кино",
   description: "Лекция и мастер-класс.",
   startsAt: "2026-11-14T15:00:00Z",
